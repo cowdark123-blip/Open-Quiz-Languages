@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { VocabItem, UserSRSProgress } from '@/types/database'
-import { calculateSM2, getSM2IntervalPreviews, SRSGrade } from '@/lib/srs/sm2'
+import { calculateSM2, getSM2IntervalPreviews, formatInterval, SRSGrade } from '@/lib/srs/sm2'
 import { fetchDueSRSItems, saveSRSProgress } from '@/lib/supabase/data-service'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
 import { Volume2, ArrowLeft, RotateCcw, Brain, Trophy, Keyboard, Eye, Loader2, CheckCircle2 } from 'lucide-react'
@@ -297,7 +297,7 @@ export default function GlobalSRSPage() {
                   1
                 </kbd>
               </div>
-              <span className="text-[10px] text-red-400 font-normal">Hẹn: {intervals.again} ngày</span>
+              <span className="text-[10px] text-red-400 font-normal">Hẹn: {formatInterval(intervals.again)}</span>
             </button>
 
             <button
@@ -311,7 +311,7 @@ export default function GlobalSRSPage() {
                   2
                 </kbd>
               </div>
-              <span className="text-[10px] text-amber-400 font-normal">Hẹn: {intervals.hard} ngày</span>
+              <span className="text-[10px] text-amber-400 font-normal">Hẹn: {formatInterval(intervals.hard)}</span>
             </button>
 
             <button
@@ -325,7 +325,7 @@ export default function GlobalSRSPage() {
                   3
                 </kbd>
               </div>
-              <span className="text-[10px] text-blue-400 font-normal">Hẹn: {intervals.good} ngày</span>
+              <span className="text-[10px] text-blue-400 font-normal">Hẹn: {formatInterval(intervals.good)}</span>
             </button>
 
             <button
@@ -339,7 +339,7 @@ export default function GlobalSRSPage() {
                   4
                 </kbd>
               </div>
-              <span className="text-[10px] text-emerald-400 font-normal">Hẹn: {intervals.easy} ngày</span>
+              <span className="text-[10px] text-emerald-400 font-normal">Hẹn: {formatInterval(intervals.easy)}</span>
             </button>
           </div>
         </div>

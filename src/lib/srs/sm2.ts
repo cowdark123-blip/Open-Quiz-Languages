@@ -28,49 +28,40 @@ export function calculateSM2(
   let interval: number
   let repetition: number
   let easeFactor: number
-  let quality: number // SM-2 score from 0 to 5
 
   switch (grade) {
     case 'again':
-      quality = 1
+      interval = 1
+      repetition = 0
+      easeFactor = Math.max(1.3, currentEaseFactor - 0.2)
       break
     case 'hard':
-      quality = 3
+      if (currentRepetition === 0) {
+        interval = 2
+      } else {
+        interval = Math.max(currentInterval + 1, Math.round(currentInterval * 1.2))
+      }
+      repetition = currentRepetition + 1
+      easeFactor = Math.max(1.3, currentEaseFactor - 0.15)
       break
     case 'good':
-      quality = 4
+      if (currentRepetition === 0) {
+        interval = 4
+      } else {
+        interval = Math.max(currentInterval + 2, Math.round(currentInterval * currentEaseFactor))
+      }
+      repetition = currentRepetition + 1
+      easeFactor = currentEaseFactor
       break
     case 'easy':
-      quality = 5
+      if (currentRepetition === 0) {
+        interval = 7
+      } else {
+        interval = Math.max(currentInterval + 4, Math.round(currentInterval * currentEaseFactor * 1.3))
+      }
+      repetition = currentRepetition + 1
+      easeFactor = currentEaseFactor + 0.15
       break
-  }
-
-  // 1. Calculate New Ease Factor
-  easeFactor = currentEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
-  if (easeFactor < 1.3) easeFactor = 1.3
-
-  // 2. Calculate New Repetition and Interval
-  if (quality < 3) {
-    // Failed recall: reset repetitions
-    repetition = 0
-    interval = 1
-  } else {
-    // Successful recall
-    if (currentRepetition === 0) {
-      interval = 1
-    } else if (currentRepetition === 1) {
-      interval = 6
-    } else {
-      interval = Math.round(currentInterval * easeFactor)
-    }
-    repetition = currentRepetition + 1
-  }
-
-  // Additional modifier for 'easy' or 'hard'
-  if (grade === 'easy') {
-    interval = Math.round(interval * 1.3)
-  } else if (grade === 'hard') {
-    interval = Math.max(1, Math.round(interval * 0.8))
   }
 
   // 3. Calculate Next Review Date
@@ -101,4 +92,11 @@ export function getSM2IntervalPreviews(
     good: calculateSM2('good', currentInterval, currentRepetition, currentEaseFactor).calculatedIntervalDays,
     easy: calculateSM2('easy', currentInterval, currentRepetition, currentEaseFactor).calculatedIntervalDays,
   }
+}
+
+export function formatInterval(days: number): string {
+  if (days === 1) return '1 ngày'
+  if (days < 30) return `${days} ngày`
+  const months = Math.round(days / 30)
+  return `${months} tháng`
 }
