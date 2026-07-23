@@ -70,7 +70,7 @@ export async function updateUserStreak(userId?: string): Promise<number> {
 export async function fetchUserVocabSets(userId?: string): Promise<VocabSet[]> {
   const supabase = createClient()
   try {
-    let query = supabase.from('vocab_sets').select('*').order('created_at', { ascending: false })
+    let query = supabase.from('vocab_sets').select('*, vocab_items(count)').order('created_at', { ascending: false })
     
     if (userId) {
       query = query.or(`user_id.eq.${userId},is_public.eq.true`)
@@ -79,7 +79,12 @@ export async function fetchUserVocabSets(userId?: string): Promise<VocabSet[]> {
     const { data, error } = await query
 
     if (error || !data) return []
-    return data as VocabSet[]
+    
+    return data.map((set: any) => ({
+      ...set,
+      item_count: set.vocab_items?.[0]?.count || 0,
+      vocab_items: undefined
+    })) as VocabSet[]
   } catch {
     return []
   }
@@ -189,6 +194,16 @@ export async function deleteVocabSet(id: string): Promise<boolean> {
   const supabase = createClient()
   try {
     const { error } = await supabase.from('vocab_sets').delete().eq('id', id)
+    return !error
+  } catch {
+    return false
+  }
+}
+
+export async function updateVocabSet(id: string, updates: Partial<VocabSet>): Promise<boolean> {
+  const supabase = createClient()
+  try {
+    const { error } = await supabase.from('vocab_sets').update(updates).eq('id', id)
     return !error
   } catch {
     return false

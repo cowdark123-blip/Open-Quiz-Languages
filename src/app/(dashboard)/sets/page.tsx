@@ -6,10 +6,11 @@ import {
   fetchVocabSets,
   insertVocabSet,
   deleteVocabSet as apiDeleteVocabSet,
+  updateVocabSet as apiUpdateVocabSet,
   seedInitialDatabase,
 } from '@/lib/supabase/data-service'
 import { VocabSet } from '@/types/database'
-import { Plus, BookOpen, Trash2, Search, FolderPlus, ArrowRight, X, Loader2, Sparkles } from 'lucide-react'
+import { Plus, BookOpen, Trash2, Edit2, Search, FolderPlus, ArrowRight, X, Loader2, Sparkles } from 'lucide-react'
 
 export default function SetsPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -19,12 +20,31 @@ export default function SetsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // Form State for Create Set Modal
+  // Form State for Create/Edit Set Modal
+  const [editingSet, setEditingSet] = useState<VocabSet | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newCategory, setNewCategory] = useState('IELTS')
   const [newLang, setNewLang] = useState('en')
   const [creating, setCreating] = useState(false)
+
+  const handleOpenCreateSet = () => {
+    setEditingSet(null)
+    setNewTitle('')
+    setNewDesc('')
+    setNewCategory('IELTS')
+    setNewLang('en')
+    setIsModalOpen(true)
+  }
+
+  const handleOpenEditSet = (set: VocabSet) => {
+    setEditingSet(set)
+    setNewTitle(set.title)
+    setNewDesc(set.description || '')
+    setNewCategory(set.category)
+    setNewLang(set.target_language)
+    setIsModalOpen(true)
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -44,23 +64,37 @@ export default function SetsPage() {
     setSeeding(false)
   }
 
-  const handleCreateSet = async (e: React.FormEvent) => {
+  const handleSaveSet = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newTitle.trim()) return
     setCreating(true)
 
-    const created = await insertVocabSet({
-      title: newTitle,
-      description: newDesc,
-      category: newCategory,
-      target_language: newLang,
-      is_public: true,
-    })
-
-    if (created) {
-      setSets([created, ...sets])
+    if (editingSet) {
+      const updated = await apiUpdateVocabSet(editingSet.id, {
+        title: newTitle,
+        description: newDesc,
+        category: newCategory,
+        target_language: newLang,
+      })
+      if (updated) {
+        setSets(sets.map((s) => (s.id === editingSet.id ? { ...s, title: newTitle, description: newDesc, category: newCategory, target_language: newLang } : s)))
+      } else {
+        await loadData()
+      }
     } else {
-      await loadData()
+      const created = await insertVocabSet({
+        title: newTitle,
+        description: newDesc,
+        category: newCategory,
+        target_language: newLang,
+        is_public: true,
+      })
+
+      if (created) {
+        setSets([created, ...sets])
+      } else {
+        await loadData()
+      }
     }
 
     setNewTitle('')
@@ -111,7 +145,7 @@ export default function SetsPage() {
           )}
 
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenCreateSet}
             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-purple-500/25 transition-all flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -172,7 +206,7 @@ export default function SetsPage() {
               <span>Nạp Từ Vựng Mẫu</span>
             </button>
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={handleOpenCreateSet}
               className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md"
             >
               Tạo Bộ Từ Mới
@@ -192,13 +226,22 @@ export default function SetsPage() {
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
                     {set.category}
                   </span>
-                  <button
-                    onClick={() => handleDeleteSet(set.id)}
-                    title="Xóa bộ từ"
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenEditSet(set)}
+                      title="Sửa bộ từ"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSet(set.id)}
+                      title="Xóa bộ từ"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <Link href={`/sets/${set.id}`} className="block">
@@ -213,7 +256,7 @@ export default function SetsPage() {
 
               <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
                 <span className="text-xs text-slate-400 font-medium">
-                  {set.item_count || 6} từ vựng
+                  {set.item_count || 0} từ vựng
                 </span>
 
                 <div className="flex items-center gap-2">
@@ -244,8 +287,8 @@ export default function SetsPage() {
           <div className="w-full max-w-lg glass-panel p-6 rounded-3xl border border-slate-800 shadow-2xl relative">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <FolderPlus className="w-5 h-5 text-purple-400" />
-                <span>Tạo Bộ Từ Vựng Mới</span>
+                {editingSet ? <Edit2 className="w-5 h-5 text-purple-400" /> : <FolderPlus className="w-5 h-5 text-purple-400" />}
+                <span>{editingSet ? 'Chỉnh Sửa Bộ Từ Vựng' : 'Tạo Bộ Từ Vựng Mới'}</span>
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -255,7 +298,7 @@ export default function SetsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSet} className="space-y-4">
+            <form onSubmit={handleSaveSet} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Tên bộ từ vựng *</label>
                 <input
@@ -322,7 +365,7 @@ export default function SetsPage() {
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition-all flex items-center gap-2"
                 >
                   {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Tạo Bộ Từ Vựng</span>
+                  <span>{editingSet ? 'Lưu Thay Đổi' : 'Tạo Bộ Từ Vựng'}</span>
                 </button>
               </div>
             </form>

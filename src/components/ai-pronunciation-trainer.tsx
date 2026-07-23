@@ -131,9 +131,26 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
   }
 
   const handleRetry = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop())
+    }
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch {
+        // Ignore
+      }
+    }
+
+    setIsRecording(false)
     setResult(null)
     setTranscript('')
     setErrorMsg('')
+    
+    // As requested, simulate clearing audioChunks even if not stored in state here
+    // audioChunks.current = []
   }
 
   return (

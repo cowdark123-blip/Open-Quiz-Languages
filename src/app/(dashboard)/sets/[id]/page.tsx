@@ -9,10 +9,11 @@ import {
   insertVocabItem,
   updateVocabItem as apiUpdateVocabItem,
   deleteVocabItem as apiDeleteVocabItem,
+  updateVocabSet as apiUpdateVocabSet,
   getCurrentUserProfile,
 } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
-import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2 } from 'lucide-react'
+import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2, FolderPlus } from 'lucide-react'
 
 export default function SetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -22,6 +23,16 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
   const [currentSet, setCurrentSet] = useState<VocabSet | null>(null)
   const [items, setItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Set Edit State
+  const [isEditSetModalOpen, setIsEditSetModalOpen] = useState(false)
+  const [setSaving, setSetSaving] = useState(false)
+  const [editSetTitle, setEditSetTitle] = useState('')
+  const [editSetDesc, setEditSetDesc] = useState('')
+  const [editSetCategory, setEditSetCategory] = useState('')
+  const [editSetLang, setEditSetLang] = useState('')
+
+  // Item Form State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<VocabItem | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
@@ -80,6 +91,34 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     setSynonymsInput(item.synonyms ? item.synonyms.join(', ') : '')
     setAiErrorMsg('')
     setIsModalOpen(true)
+  }
+
+  const handleOpenEditSetModal = () => {
+    if (!currentSet) return
+    setEditSetTitle(currentSet.title)
+    setEditSetDesc(currentSet.description || '')
+    setEditSetCategory(currentSet.category)
+    setEditSetLang(currentSet.target_language)
+    setIsEditSetModalOpen(true)
+  }
+
+  const handleSaveSetInfo = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editSetTitle.trim() || !currentSet) return
+    setSetSaving(true)
+
+    const updated = await apiUpdateVocabSet(currentSet.id, {
+      title: editSetTitle,
+      description: editSetDesc,
+      category: editSetCategory,
+      target_language: editSetLang,
+    })
+
+    if (updated) {
+      setCurrentSet({ ...currentSet, title: editSetTitle, description: editSetDesc, category: editSetCategory, target_language: editSetLang })
+    }
+    setSetSaving(false)
+    setIsEditSetModalOpen(false)
   }
 
   // AI Auto-Fill Handler
@@ -207,7 +246,16 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
           <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400">
             {currentSet?.category || 'IELTS'}
           </span>
-          <h2 className="text-2xl font-extrabold text-white">{currentSet?.title}</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-extrabold text-white">{currentSet?.title}</h2>
+            <button
+              onClick={handleOpenEditSetModal}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Chỉnh sửa thông tin bộ từ"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -460,6 +508,96 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
                 >
                   <Check className="w-4 h-4" />
                   <span>{editingItem ? 'Lưu Thay Đổi' : 'Thêm Từ Vựng'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Set Metadata */}
+      {isEditSetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-lg glass-panel p-6 rounded-3xl border border-slate-800 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-purple-400" />
+                <span>Chỉnh Sửa Bộ Từ Vựng</span>
+              </h3>
+              <button
+                onClick={() => setIsEditSetModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSetInfo} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Tên bộ từ vựng *</label>
+                <input
+                  type="text"
+                  required
+                  value={editSetTitle}
+                  onChange={(e) => setEditSetTitle(e.target.value)}
+                  className="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Mô tả chi tiết</label>
+                <textarea
+                  rows={3}
+                  value={editSetDesc}
+                  onChange={(e) => setEditSetDesc(e.target.value)}
+                  className="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-purple-500 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Danh mục</label>
+                  <select
+                    value={editSetCategory}
+                    onChange={(e) => setEditSetCategory(e.target.value)}
+                    className="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="IELTS">IELTS</option>
+                    <option value="TOEIC">TOEIC</option>
+                    <option value="Business">Business</option>
+                    <option value="Speaking">Speaking</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Ngôn ngữ mục tiêu</label>
+                  <select
+                    value={editSetLang}
+                    onChange={(e) => setEditSetLang(e.target.value)}
+                    className="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="en">Tiếng Anh (EN)</option>
+                    <option value="ja">Tiếng Nhật (JLPT)</option>
+                    <option value="zh">Tiếng Trung (HSK)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditSetModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={setSaving}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition-all flex items-center gap-1.5"
+                >
+                  {setSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Lưu Thay Đổi</span>
                 </button>
               </div>
             </form>
