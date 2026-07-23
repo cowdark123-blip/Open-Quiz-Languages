@@ -31,22 +31,15 @@ Return ONLY a valid raw JSON object matching this schema without markdown codebl
   "synonyms": "3-5 synonyms separated by commas"
 }`
 
-    // Dual-version endpoints (v1beta & v1) x Official Gemini Models
-    const endpoints = [
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-      'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
-      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent',
-    ]
-
+    // v1beta endpoint with fallback models array
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash']
     let lastError = ''
     let parsedData = null
 
-    for (const url of endpoints) {
+    for (const model of models) {
       try {
-        const res = await fetch(`${url}?key=${apiKey}`, {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -69,11 +62,10 @@ Return ONLY a valid raw JSON object matching this schema without markdown codebl
           }
         } else {
           const errBody = await res.text()
-          const modelName = url.split('/models/')[1]?.split(':')[0] || url
-          lastError = `[${modelName}] HTTP ${res.status}: ${errBody}`
+          lastError = `[${model}] HTTP ${res.status}: ${errBody}`
         }
       } catch (err: any) {
-        lastError = `Error: ${err.message}`
+        lastError = `[${model}] Error: ${err.message}`
       }
     }
 
