@@ -1,27 +1,48 @@
 import { createClient } from './client'
-import { VocabSet, VocabItem, UserSRSProgress, SpeakingSession } from '@/types/database'
+import { VocabSet, VocabItem, UserSRSProgress, SpeakingSession, Profile } from '@/types/database'
 
-export async function fetchVocabSets(): Promise<VocabSet[]> {
+export async function getCurrentUserProfile(): Promise<{ user: any; profile: Profile | null }> {
   const supabase = createClient()
   try {
-    const { data, error } = await supabase
-      .from('vocab_sets')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { user: null, profile: null }
 
-    if (error || !data) {
-      console.warn('Supabase fetch error:', error)
-      return []
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    return {
+      user,
+      profile: profile as Profile | null,
+    }
+  } catch {
+    return { user: null, profile: null }
+  }
+}
+
+export async function fetchUserVocabSets(userId?: string): Promise<VocabSet[]> {
+  const supabase = createClient()
+  try {
+    let query = supabase.from('vocab_sets').select('*').order('created_at', { ascending: false })
+    
+    if (userId) {
+      query = query.or(`user_id.eq.${userId},is_public.eq.true`)
     }
 
+    const { data, error } = await query
+
+    if (error || !data) return []
     return data as VocabSet[]
-  } catch (err) {
-    console.error('Fetch sets error:', err)
+  } catch {
     return []
   }
 }
 
-export async function fetchVocabSetById(id: string): Promise<VocabSet | null> {
+export const fetchVocabSets = fetchUserVocabSets
+
+export async function fetchUserVocabSetById(id: string): Promise<VocabSet | null> {
   const supabase = createClient()
   try {
     const { data, error } = await supabase
@@ -30,15 +51,14 @@ export async function fetchVocabSetById(id: string): Promise<VocabSet | null> {
       .eq('id', id)
       .single()
 
-    if (error || !data) {
-      return null
-    }
-
+    if (error || !data) return null
     return data as VocabSet
   } catch {
     return null
   }
 }
+
+export const fetchVocabSetById = fetchUserVocabSetById
 
 export async function fetchVocabItems(setId: string): Promise<VocabItem[]> {
   const supabase = createClient()
@@ -49,32 +69,8 @@ export async function fetchVocabItems(setId: string): Promise<VocabItem[]> {
       .eq('set_id', setId)
       .order('created_at', { ascending: true })
 
-    if (error || !data) {
-      return []
-    }
-
+    if (error || !data) return []
     return data as VocabItem[]
-  } catch {
-    return []
-  }
-}
-
-export async function fetchAllVocabItems(): Promise<(VocabItem & { setTitle?: string })[]> {
-  const supabase = createClient()
-  try {
-    const { data, error } = await supabase
-      .from('vocab_items')
-      .select('*, vocab_sets(title)')
-      .order('created_at', { ascending: true })
-
-    if (error || !data) {
-      return []
-    }
-
-    return data.map((item: any) => ({
-      ...item,
-      setTitle: item.vocab_sets?.title || 'Bộ Từ Vựng',
-    }))
   } catch {
     return []
   }
@@ -83,19 +79,21 @@ export async function fetchAllVocabItems(): Promise<(VocabItem & { setTitle?: st
 export async function insertVocabSet(newSet: Partial<VocabSet>): Promise<VocabSet | null> {
   const supabase = createClient()
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const payload = {
+      ...newSet,
+      user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+    }
+
     const { data, error } = await supabase
       .from('vocab_sets')
-      .insert([newSet])
+      .insert([payload])
       .select()
       .single()
 
-    if (error) {
-      console.error('Supabase insert set error:', error)
-      return null
-    }
+    if (error) return null
     return data as VocabSet
-  } catch (err) {
-    console.error('Insert set catch error:', err)
+  } catch {
     return null
   }
 }
@@ -119,10 +117,7 @@ export async function insertVocabItem(item: Partial<VocabItem>): Promise<VocabIt
       .select()
       .single()
 
-    if (error) {
-      console.error('Supabase insert item error:', error)
-      return null
-    }
+    if (error) return null
     return data as VocabItem
   } catch {
     return null
@@ -152,7 +147,13 @@ export async function deleteVocabItem(id: string): Promise<boolean> {
 export async function saveSRSProgress(progress: Partial<UserSRSProgress>): Promise<boolean> {
   const supabase = createClient()
   try {
-    const { error } = await supabase.from('user_srs_progress').insert([progress])
+    const { data: { user } } = await supabase.auth.getUser()
+    const payload = {
+      ...progress,
+      user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+    }
+
+    const { error } = await supabase.from('user_srs_progress').insert([payload])
     return !error
   } catch {
     return false
@@ -162,7 +163,13 @@ export async function saveSRSProgress(progress: Partial<UserSRSProgress>): Promi
 export async function saveSpeakingSession(session: Partial<SpeakingSession>): Promise<boolean> {
   const supabase = createClient()
   try {
-    const { error } = await supabase.from('speaking_sessions').insert([session])
+    const { data: { user } } = await supabase.auth.getUser()
+    const payload = {
+      ...session,
+      user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+    }
+
+    const { error } = await supabase.from('speaking_sessions').insert([payload])
     return !error
   } catch {
     return false
@@ -170,18 +177,21 @@ export async function saveSpeakingSession(session: Partial<SpeakingSession>): Pr
 }
 
 /**
- * Seeds initial database data directly into Supabase Cloud PostgreSQL
+ * Seeds IELTS Sample Set directly into current user's Supabase account
  */
-export async function seedInitialDatabase(): Promise<boolean> {
+export async function seedSampleSetForUser(): Promise<VocabSet | null> {
   const supabase = createClient()
   try {
-    // 1. Create IELTS Set
-    const { data: set1, error: e1 } = await supabase
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id || '00000000-0000-0000-0000-000000000000'
+
+    const { data: setObj, error: setErr } = await supabase
       .from('vocab_sets')
       .insert([
         {
+          user_id: userId,
           title: 'IELTS Core Vocabulary (Band 7.5+)',
-          description: 'Bộ từ vựng học thuật quan trọng lưu trực tiếp trên Supabase PostgreSQL.',
+          description: 'Bộ từ vựng học thuật quan trọng cho kỳ thi IELTS Speaking & Writing Task 2.',
           category: 'IELTS',
           target_language: 'en',
           is_public: true,
@@ -190,10 +200,10 @@ export async function seedInitialDatabase(): Promise<boolean> {
       .select()
       .single()
 
-    if (set1 && !e1) {
+    if (setObj && !setErr) {
       await supabase.from('vocab_items').insert([
         {
-          set_id: set1.id,
+          set_id: setObj.id,
           term: 'Resilience',
           definition: 'The capacity to recover quickly from difficulties; toughness.',
           ipa: '/rɪˈzɪl.jəns/',
@@ -202,7 +212,7 @@ export async function seedInitialDatabase(): Promise<boolean> {
           synonyms: ['adaptability', 'toughness', 'flexibility'],
         },
         {
-          set_id: set1.id,
+          set_id: setObj.id,
           term: 'Ubiquitous',
           definition: 'Present, appearing, or found everywhere.',
           ipa: '/juːˈbɪk.wə.təs/',
@@ -211,7 +221,7 @@ export async function seedInitialDatabase(): Promise<boolean> {
           synonyms: ['omnipresent', 'pervasive', 'universal'],
         },
         {
-          set_id: set1.id,
+          set_id: setObj.id,
           term: 'Meticulous',
           definition: 'Showing great attention to detail; very careful and precise.',
           ipa: '/məˈtɪk.jə.ləs/',
@@ -220,11 +230,14 @@ export async function seedInitialDatabase(): Promise<boolean> {
           synonyms: ['thorough', 'diligent', 'precise'],
         },
       ])
+
+      return setObj as VocabSet
     }
 
-    return true
-  } catch (err) {
-    console.error('Seed database error:', err)
-    return false
+    return null
+  } catch {
+    return null
   }
 }
+
+export const seedInitialDatabase = seedSampleSetForUser

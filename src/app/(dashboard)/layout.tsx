@@ -1,8 +1,10 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Brain, LayoutDashboard, Layers, Mic, Flame, Sparkles, LogOut, Settings, Bell, BookOpen } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Brain, LayoutDashboard, Layers, Mic, Flame, Sparkles, LogOut, Bell, BookOpen, User as UserIcon } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
@@ -10,6 +12,58 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const [userInfo, setUserInfo] = useState<{
+    displayName: string
+    avatarUrl?: string | null
+    email?: string | null
+    streak: number
+  }>({
+    displayName: 'Học Viên OpenQuiz',
+    avatarUrl: null,
+    email: null,
+    streak: 1,
+  })
+
+  useEffect(() => {
+    async function loadUserData() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user) {
+        const fullName =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split('@')[0] ||
+          'Học Viên OpenQuiz'
+
+        const avatar = user.user_metadata?.avatar_url || null
+
+        // Query profiles table for streak count
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('streak_count')
+          .eq('id', user.id)
+          .single()
+
+        setUserInfo({
+          displayName: fullName,
+          avatarUrl: avatar,
+          email: user.email,
+          streak: profile?.streak_count || 1,
+        })
+      }
+    }
+
+    loadUserData()
+  }, [])
+
+  const handleSignOut = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   const navItems = [
     { name: 'Bảng Điều Khiển', href: '/dashboard', icon: LayoutDashboard },
@@ -59,26 +113,41 @@ export default function DashboardLayout({
           </nav>
         </div>
 
-        {/* User Card & Settings */}
+        {/* User Profile Card & Sign Out */}
         <div className="pt-6 border-t border-slate-800/80 space-y-4">
           <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
-              HQ
-            </div>
+            {userInfo.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={userInfo.avatarUrl}
+                alt="Avatar"
+                className="w-10 h-10 rounded-full border border-purple-500/40 object-cover shadow-md"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                {userInfo.displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
+
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-white truncate">Học Viên OpenQuiz</div>
-              <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Free Plan
+              <div className="text-xs font-bold text-white truncate">{userInfo.displayName}</div>
+              <div className="text-[10px] text-slate-400 truncate">
+                {userInfo.email || 'Tài khoản thành viên'}
               </div>
             </div>
           </div>
 
           <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-            <Link href="/" className="hover:text-white flex items-center gap-1.5 transition-colors">
+            <button
+              onClick={handleSignOut}
+              className="hover:text-red-400 flex items-center gap-1.5 transition-colors text-slate-400"
+            >
               <LogOut className="w-4 h-4 text-slate-500" />
-              <span>Thoát</span>
-            </Link>
-            <span className="text-[10px] text-slate-600">v1.0.0</span>
+              <span>Đăng xuất</span>
+            </button>
+            <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live DB
+            </span>
           </div>
         </div>
       </aside>
@@ -95,7 +164,7 @@ export default function DashboardLayout({
             {/* Streak Counter Badge */}
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold shadow-sm">
               <Flame className="w-4 h-4 text-amber-400 fill-amber-400/20 animate-bounce" />
-              <span>Chuỗi 5 Ngày 🔥</span>
+              <span>Chuỗi {userInfo.streak} Ngày 🔥</span>
             </div>
 
             {/* AI Generator Quick Button */}
@@ -106,11 +175,6 @@ export default function DashboardLayout({
               <Sparkles className="w-3.5 h-3.5 text-purple-400" />
               <span>Tạo Từ Vựng AI</span>
             </Link>
-
-            <button className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
-            </button>
           </div>
         </header>
 
