@@ -168,14 +168,7 @@ export default function DashboardLayout({
               <span>Chuỗi {userInfo.streak} Ngày 🔥</span>
             </div>
 
-            {/* AI Generator Quick Button */}
-            <Link
-              href="/sets?create=true"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition-all"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span>Tạo Bộ Từ Vựng AI</span>
-            </Link>
+
           </div>
         </header>
 
