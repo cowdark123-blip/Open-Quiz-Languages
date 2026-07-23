@@ -1,0 +1,319 @@
+'use client'
+
+import { useState, useEffect, useCallback, use } from 'react'
+import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { INITIAL_MOCK_SETS } from '@/lib/mock-data'
+import { VocabItem } from '@/types/database'
+import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard } from 'lucide-react'
+
+export default function FlashcardsPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
+  const setId = resolvedParams.id
+
+  const currentSet = INITIAL_MOCK_SETS.find((s) => s.id === setId) || INITIAL_MOCK_SETS[0]
+  const cards: VocabItem[] = currentSet.items || []
+
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isFlipped, setIsFlipped] = useState(false)
+  const [masteredCount, setMasteredCount] = useState(0)
+  const [reviewCount, setReviewCount] = useState(0)
+  const [isCompleted, setIsCompleted] = useState(false)
+
+  const currentCard = cards[currentIndex]
+
+  // Play audio TTS
+  const playAudio = useCallback((text: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'en-US'
+      utterance.rate = 0.9
+      window.speechSynthesis.speak(utterance)
+    }
+  }, [])
+
+  const handleNextCard = useCallback((known: boolean) => {
+    if (known) {
+      setMasteredCount((prev) => prev + 1)
+    } else {
+      setReviewCount((prev) => prev + 1)
+    }
+
+    setIsFlipped(false)
+
+    if (currentIndex + 1 < cards.length) {
+      setCurrentIndex((prev) => prev + 1)
+    } else {
+      setIsCompleted(true)
+    }
+  }, [currentIndex, cards.length])
+
+  const handleRestart = () => {
+    setCurrentIndex(0)
+    setIsFlipped(false)
+    setMasteredCount(0)
+    setReviewCount(0)
+    setIsCompleted(false)
+  }
+
+  // Keyboard Shortcuts Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Avoid triggering when focused on input fields
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return
+
+      if (isCompleted) return
+
+      if (e.code === 'Space' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        setIsFlipped((prev) => !prev)
+      } else if (e.key === 'ArrowLeft' || e.key === '1') {
+        e.preventDefault()
+        handleNextCard(false)
+      } else if (e.key === 'ArrowRight' || e.key === '2') {
+        e.preventDefault()
+        handleNextCard(true)
+      } else if (e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 's' || e.key.toLowerCase() === 'p') {
+        e.preventDefault()
+        if (currentCard) {
+          playAudio(currentCard.term)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isCompleted, handleNextCard, currentCard, playAudio])
+
+  if (!currentCard || cards.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto py-16 text-center space-y-4">
+        <h3 className="text-xl font-bold text-white">Chưa có từ vựng trong bộ này</h3>
+        <Link href={`/sets/${setId}`} className="text-purple-400 font-semibold hover:underline">
+          Quay lại để thêm từ vựng mới
+        </Link>
+      </div>
+    )
+  }
+
+  const progressPercent = Math.round(((currentIndex + (isCompleted ? 1 : 0)) / cards.length) * 100)
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4">
+      {/* Top Header Controls */}
+      <div className="flex items-center justify-between">
+        <Link
+          href={`/sets/${setId}`}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-card text-xs text-slate-300 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Chi Tiết Bộ Từ</span>
+        </Link>
+
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-mono font-bold text-purple-300 bg-purple-500/10 px-3 py-1 rounded-full border border-purple-500/20">
+            Thẻ {isCompleted ? cards.length : currentIndex + 1} / {cards.length}
+          </span>
+          <button
+            onClick={handleRestart}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            title="Bắt đầu lại"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+        <div
+          className="h-full bg-gradient-to-r from-purple-500 via-cyan-400 to-emerald-400 transition-all duration-300"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      {!isCompleted ? (
+        <div className="space-y-6">
+          {/* 3D Flip Card Container */}
+          <div className="perspective-1000 w-full max-w-xl mx-auto h-[380px] cursor-pointer select-none">
+            <motion.div
+              className="w-full h-full relative transform-style-3d"
+              animate={{ rotateY: isFlipped ? 180 : 0 }}
+              transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+              onClick={() => setIsFlipped(!isFlipped)}
+            >
+              {/* Front of Card */}
+              <div
+                className={`absolute inset-0 w-full h-full glass-card rounded-3xl p-8 flex flex-col items-center justify-between text-center border border-slate-700/80 shadow-2xl backface-hidden ${
+                  isFlipped ? 'pointer-events-none' : ''
+                }`}
+              >
+                <div className="w-full flex items-center justify-between text-xs text-slate-400">
+                  <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-300 font-bold border border-purple-500/20">
+                    Mặt Trước
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Nhấn [Space] để lật
+                  </span>
+                </div>
+
+                <div className="space-y-4 my-auto">
+                  <h2 className="text-4xl md:text-5xl font-black text-white tracking-wide">
+                    {currentCard.term}
+                  </h2>
+                  {currentCard.ipa && (
+                    <p className="text-base font-mono text-purple-300 italic">{currentCard.ipa}</p>
+                  )}
+                  <button
+                    onClick={(e) => playAudio(currentCard.term, e)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all shadow-md"
+                  >
+                    <Volume2 className="w-4 h-4 text-purple-400" />
+                    <span>Phát âm chuẩn (Phím A / S)</span>
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-500 font-medium">Lật thẻ để kiểm tra trí nhớ</div>
+              </div>
+
+              {/* Back of Card */}
+              <div
+                className={`absolute inset-0 w-full h-full glass-card rounded-3xl p-8 flex flex-col items-center justify-between text-center border border-purple-500/40 shadow-2xl backface-hidden rotate-y-180 bg-gradient-to-b from-slate-900/90 to-purple-950/40 ${
+                  !isFlipped ? 'pointer-events-none' : ''
+                }`}
+              >
+                <div className="w-full flex items-center justify-between text-xs text-slate-400">
+                  <span className="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 font-bold border border-cyan-500/20">
+                    Định Nghĩa & Ví Dụ
+                  </span>
+                  <button
+                    onClick={(e) => playAudio(currentCard.term, e)}
+                    className="p-1.5 rounded-lg text-purple-300 hover:bg-purple-500/10"
+                    title="Nghe lại (Phím A / S)"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-4 my-auto text-left w-full">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Định nghĩa tiếng Anh</span>
+                    <p className="text-base font-bold text-white mt-0.5">{currentCard.definition}</p>
+                  </div>
+
+                  {currentCard.vietnamese_translation && (
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-purple-400">Bản dịch Tiếng Việt</span>
+                      <p className="text-sm font-semibold text-purple-200 mt-0.5">
+                        {currentCard.vietnamese_translation}
+                      </p>
+                    </div>
+                  )}
+
+                  {currentCard.example_sentence && (
+                    <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300">
+                      <strong>Ví dụ:</strong> &quot;{currentCard.example_sentence}&quot;
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-xs text-slate-500 font-medium">Chọn mức độ ghi nhớ ở bên dưới</div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Action Feedback Controls */}
+          <div className="flex items-center justify-center gap-4 max-w-xl mx-auto">
+            <button
+              onClick={() => handleNextCard(false)}
+              className="flex-1 py-3.5 px-6 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/5 active:scale-95 group"
+            >
+              <XCircle className="w-5 h-5 text-red-400" />
+              <span>Cần Học Lại</span>
+              <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono bg-red-950/60 rounded border border-red-800/60 text-red-300 ml-1">
+                ← / 1
+              </kbd>
+            </button>
+
+            <button
+              onClick={() => handleNextCard(true)}
+              className="flex-1 py-3.5 px-6 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 active:scale-95 group"
+            >
+              <CheckCircle className="w-5 h-5 text-emerald-400" />
+              <span>Đã Thuộc</span>
+              <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono bg-emerald-950/60 rounded border border-emerald-800/60 text-emerald-300 ml-1">
+                → / 2
+              </kbd>
+            </button>
+          </div>
+
+          {/* Keyboard Shortcuts Legend Footer */}
+          <div className="p-3 rounded-2xl glass-panel border border-slate-800/90 max-w-xl mx-auto text-center flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-300">
+              <Keyboard className="w-4 h-4 text-purple-400" />
+              <span>Phím tắt:</span>
+            </div>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-purple-300 font-mono text-[11px]">Space / ↑ / ↓</kbd> Lật thẻ
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-red-400 font-mono text-[11px]">← / 1</kbd> Học lại
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-mono text-[11px]">→ / 2</kbd> Thuộc
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-cyan-300 font-mono text-[11px]">A / S</kbd> Nghe
+            </span>
+          </div>
+        </div>
+      ) : (
+        /* Completion Summary Screen */
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-panel p-8 rounded-3xl border border-purple-500/30 text-center space-y-6 max-w-lg mx-auto shadow-2xl"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-purple-600 flex items-center justify-center mx-auto shadow-xl shadow-amber-500/20">
+            <Trophy className="w-8 h-8 text-white" />
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-2xl font-black text-white">Hoàn Thành Bài Lật Thẻ!</h3>
+            <p className="text-slate-400 text-xs">Bạn đã đi qua tất cả các từ vựng trong bộ này.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+              <div className="text-2xl font-black text-emerald-400">{masteredCount}</div>
+              <div className="text-xs text-slate-400">Từ đã thuộc</div>
+            </div>
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+              <div className="text-2xl font-black text-amber-400">{reviewCount}</div>
+              <div className="text-xs text-slate-400">Từ cần ôn thêm</div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-4">
+            <button
+              onClick={handleRestart}
+              className="w-full sm:w-1/2 py-3 px-4 rounded-xl glass-card text-slate-300 hover:text-white font-semibold text-xs transition-all flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Học Lại Bộ Này</span>
+            </button>
+            <Link
+              href="/srs"
+              className="w-full sm:w-1/2 py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition-all flex items-center justify-center gap-2"
+            >
+              <Brain className="w-4 h-4" />
+              <span>Chuyển Sang Ôn SRS</span>
+            </Link>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  )
+}
