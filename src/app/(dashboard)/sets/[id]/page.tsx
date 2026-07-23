@@ -2,12 +2,14 @@
 
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   fetchVocabSetById,
   fetchVocabItems,
   insertVocabItem,
   updateVocabItem as apiUpdateVocabItem,
   deleteVocabItem as apiDeleteVocabItem,
+  getCurrentUserProfile,
 } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2 } from 'lucide-react'
@@ -15,6 +17,7 @@ import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles
 export default function SetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const setId = resolvedParams.id
+  const router = useRouter()
 
   const [currentSet, setCurrentSet] = useState<VocabSet | null>(null)
   const [items, setItems] = useState<VocabItem[]>([])
@@ -36,13 +39,24 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     async function loadData() {
       setLoading(true)
       const setObj = await fetchVocabSetById(setId)
+      if (!setObj) {
+        router.push('/sets')
+        return
+      }
+
+      const { user } = await getCurrentUserProfile()
+      if (setObj.user_id && user?.id && setObj.user_id !== user.id && !setObj.is_public) {
+        router.push('/dashboard')
+        return
+      }
+
       const itemsList = await fetchVocabItems(setId)
       setCurrentSet(setObj)
       setItems(itemsList)
       setLoading(false)
     }
     loadData()
-  }, [setId])
+  }, [setId, router])
 
   const handleOpenAddModal = () => {
     setEditingItem(null)

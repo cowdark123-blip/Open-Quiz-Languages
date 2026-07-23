@@ -1,8 +1,8 @@
 -- ========================================================
--- OPENQUIZ AI - SUPABASE POSTGRESQL SCHEMA (PRODUCTION DATABASE)
+-- OPENQUIZ AI - SUPABASE POSTGRESQL SCHEMA (MULTI-TENANT AUTHORIZATION)
 -- ========================================================
 
--- 1. PROFILES TABLE (Linked with Auth Users)
+-- 1. PROFILES TABLE
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   display_name TEXT NOT NULL DEFAULT 'Học viên OpenQuiz',
@@ -21,7 +21,8 @@ BEGIN
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', SPLIT_PART(NEW.email, '@', 1)),
     NEW.raw_user_meta_data->>'avatar_url'
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -34,7 +35,7 @@ CREATE TRIGGER on_auth_user_created
 -- 2. VOCAB SETS TABLE
 CREATE TABLE IF NOT EXISTS public.vocab_sets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID DEFAULT '00000000-0000-0000-0000-000000000000',
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
   title TEXT NOT NULL,
   description TEXT,
   target_language TEXT DEFAULT 'en',
@@ -57,22 +58,23 @@ CREATE TABLE IF NOT EXISTS public.vocab_items (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. USER SRS PROGRESS TABLE (SuperMemo 2 Algorithm State)
+-- 4. USER SRS PROGRESS TABLE
 CREATE TABLE IF NOT EXISTS public.user_srs_progress (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID DEFAULT '00000000-0000-0000-0000-000000000000',
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
   item_id UUID REFERENCES public.vocab_items(id) ON DELETE CASCADE NOT NULL,
   interval INT DEFAULT 1,
   repetition INT DEFAULT 0,
   ease_factor FLOAT DEFAULT 2.5,
   next_review_date TIMESTAMPTZ DEFAULT NOW(),
-  last_reviewed_at TIMESTAMPTZ
+  last_reviewed_at TIMESTAMPTZ,
+  UNIQUE(user_id, item_id)
 );
 
 -- 5. SPEAKING SESSIONS TABLE
 CREATE TABLE IF NOT EXISTS public.speaking_sessions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID DEFAULT '00000000-0000-0000-0000-000000000000',
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
   target_word_ids UUID[] NOT NULL DEFAULT '{}',
   scenario_prompt TEXT NOT NULL,
   audio_url TEXT,
@@ -83,7 +85,7 @@ CREATE TABLE IF NOT EXISTS public.speaking_sessions (
 );
 
 -- ========================================================
--- ROW LEVEL SECURITY (RLS) POLICIES - OPEN ACCESS FOR DATABASE PERSISTENCE
+-- ROW LEVEL SECURITY (RLS) POLICIES - STRICT USER ISOLATION
 -- ========================================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -92,9 +94,48 @@ ALTER TABLE public.vocab_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_srs_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.speaking_sessions ENABLE ROW LEVEL SECURITY;
 
--- Allow all operations for Database persistence
-CREATE POLICY "Allow all on profiles" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on vocab_sets" ON public.vocab_sets FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on vocab_items" ON public.vocab_items FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on user_srs_progress" ON public.user_srs_progress FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on speaking_sessions" ON public.speaking_sessions FOR ALL USING (true) WITH CHECK (true);
+-- Profiles: Users can read all, write own profile
+DROP POLICY IF EXISTS "Profiles read policy" ON public.profiles;
+CREATE POLICY "Profiles read policy" ON public.profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Profiles write policy" ON public.profiles;
+CREATE POLICY "Profiles write policy" ON public.profiles FOR ALL USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+-- Vocab Sets: Read own or public, Write own only
+DROP POLICY IF EXISTS "Vocab Sets SELECT" ON public.vocab_sets;
+CREATE POLICY "Vocab Sets SELECT" ON public.vocab_sets FOR SELECT USING (auth.uid() = user_id OR is_public = true);
+
+DROP POLICY IF EXISTS "Vocab Sets INSERT" ON public.vocab_sets;
+CREATE POLICY "Vocab Sets INSERT" ON public.vocab_sets FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Vocab Sets UPDATE" ON public.vocab_sets;
+CREATE POLICY "Vocab Sets UPDATE" ON public.vocab_sets FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Vocab Sets DELETE" ON public.vocab_sets;
+CREATE POLICY "Vocab Sets DELETE" ON public.vocab_sets FOR DELETE USING (auth.uid() = user_id);
+
+-- Vocab Items: Read items of accessible sets, Write own sets' items
+DROP POLICY IF EXISTS "Vocab Items SELECT" ON public.vocab_items;
+CREATE POLICY "Vocab Items SELECT" ON public.vocab_items FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.vocab_sets
+    WHERE public.vocab_sets.id = public.vocab_items.set_id
+    AND (public.vocab_sets.user_id = auth.uid() OR public.vocab_sets.is_public = true)
+  )
+);
+
+DROP POLICY IF EXISTS "Vocab Items ALL" ON public.vocab_items;
+CREATE POLICY "Vocab Items ALL" ON public.vocab_items FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.vocab_sets
+    WHERE public.vocab_sets.id = public.vocab_items.set_id
+    AND public.vocab_sets.user_id = auth.uid()
+  )
+);
+
+-- SRS Progress & Speaking Sessions: Strict User Ownership
+DROP POLICY IF EXISTS "SRS Progress Own Access" ON public.user_srs_progress;
+CREATE POLICY "SRS Progress Own Access" ON public.user_srs_progress FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Speaking Sessions Own Access" ON public.speaking_sessions;
+CREATE POLICY "Speaking Sessions Own Access" ON public.speaking_sessions FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
