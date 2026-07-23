@@ -101,7 +101,12 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
 
     setIsRecording(false)
 
-    const finalTranscript = transcript.trim() || targetWord
+    const finalTranscript = transcript.trim()
+    if (!finalTranscript) {
+      setErrorMsg('Vui lòng cấp quyền micro và thử nói lại. Chưa nhận diện được giọng nói!')
+      return
+    }
+
     setTranscript(finalTranscript)
     setEvaluating(true)
     setErrorMsg('')
