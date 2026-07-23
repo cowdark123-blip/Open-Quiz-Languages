@@ -9,48 +9,53 @@ export async function POST(req: Request) {
     }
 
     const cleanTerm = term.trim()
+    const apiKey = process.env.GEMINI_API_KEY
 
-    // 1. Check if Gemini API key exists
-    const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY
-
-    if (apiKey && process.env.GEMINI_API_KEY) {
+    // 1. If Real Gemini API Key is configured in environment variables
+    if (apiKey) {
       try {
-        const prompt = `You are an expert lexicographer and English teacher. Generate full dictionary details for the English term "${cleanTerm}".
-Return ONLY a valid raw JSON object with no markdown formatting or extra text:
+        const prompt = `You are an expert lexicographer and English teacher. Analyze the English vocabulary word "${cleanTerm}".
+Generate dictionary entries and return ONLY a valid raw JSON object matching this schema, without markdown triple backticks or additional text:
 {
   "term": "${cleanTerm}",
   "ipa": "/.../",
-  "definition": "Clear concise English definition",
+  "definition": "Clear concise English definition for academic/professional usage",
   "vietnamese_translation": "Dịch nghĩa tiếng Việt chính xác, tự nhiên",
   "example_sentence": "A natural, realistic example sentence using the term",
   "synonyms": ["synonym1", "synonym2", "synonym3"]
 }`
 
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: 'application/json' },
+              generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.2,
+              },
             }),
           }
         )
 
-        const data = await res.json()
-        const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text
+        if (res.ok) {
+          const data = await res.json()
+          const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text
 
-        if (textResponse) {
-          const parsed = JSON.parse(textResponse)
-          return NextResponse.json({ success: true, data: parsed })
+          if (textResponse) {
+            const cleanJson = textResponse.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
+            const parsed = JSON.parse(cleanJson)
+            return NextResponse.json({ success: true, data: parsed, isRealAI: true })
+          }
         }
       } catch (err) {
-        console.warn('Gemini API call failed, falling back to smart dictionary lookup:', err)
+        console.warn('Gemini API call failed, using fallback engine:', err)
       }
     }
 
-    // 2. Fallback Smart Dictionary Engine (Guarantees zero downtime even without API key)
+    // 2. Fallback Smart Dictionary Engine (if GEMINI_API_KEY is not set or network fails)
     const fallbackDictionary: Record<string, any> = {
       resilience: {
         term: 'Resilience',
@@ -90,13 +95,13 @@ Return ONLY a valid raw JSON object with no markdown formatting or extra text:
     const foundData = fallbackDictionary[normalizedKey] || {
       term: cleanTerm.charAt(0).toUpperCase() + cleanTerm.slice(1),
       ipa: `/${cleanTerm.toLowerCase()}/`,
-      definition: `Detailed definition for the academic term "${cleanTerm}" in professional context.`,
-      vietnamese_translation: `Định nghĩa và ý nghĩa ngữ cảnh của từ "${cleanTerm}"`,
-      example_sentence: `Using the target vocabulary word "${cleanTerm}" in a professional conversation improves fluency.`,
-      synonyms: ['related-term-1', 'related-term-2'],
+      definition: `Clear definition for the English term "${cleanTerm}".`,
+      vietnamese_translation: `Nghĩa tiếng Việt của từ "${cleanTerm}"`,
+      example_sentence: `Using "${cleanTerm}" in conversation enhances your speaking score.`,
+      synonyms: ['related-word-1', 'related-word-2'],
     }
 
-    return NextResponse.json({ success: true, data: foundData, isFallback: true })
+    return NextResponse.json({ success: true, data: foundData, isRealAI: false })
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Lỗi xử lý AI' }, { status: 500 })
   }
