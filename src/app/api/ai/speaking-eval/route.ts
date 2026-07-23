@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { targetWord, targetSentence, userTranscript } = await req.json()
+    const { targetWord, targetSentence, userTranscript, audioData } = await req.json()
 
-    if (!userTranscript || typeof userTranscript !== 'string' || !userTranscript.trim()) {
+    if (!userTranscript?.trim() && !audioData) {
       return NextResponse.json({ error: 'Không nhận diện được âm thanh phát âm' }, { status: 400 })
     }
 
@@ -23,7 +23,6 @@ Evaluate the user's spoken pronunciation of the target word/sentence.
 
 Target Word: "${targetWord || ''}"
 Target Sentence: "${targetSentence || ''}"
-User Spoken Transcript: "${userTranscript.trim()}"
 
 You MUST output ONLY a valid JSON object matching this exact schema without markdown triple backticks:
 {
@@ -38,7 +37,41 @@ You MUST output ONLY a valid JSON object matching this exact schema without mark
 
 For "wordAnalysis", assign status: "good" (accuracy >= 85), "average" (60-84), or "poor" (< 60).`
 
-    const userPrompt = `Evaluate pronunciation: Target: "${targetWord || targetSentence}", Spoken: "${userTranscript.trim()}"`
+    let finalTranscript = userTranscript?.trim() || ''
+
+    // Whisper Fallback if no transcript but audio exists
+    if (!finalTranscript && audioData) {
+      try {
+        const audioBuffer = Buffer.from(audioData, 'base64')
+        const blob = new Blob([audioBuffer], { type: 'audio/webm' })
+        const formData = new FormData()
+        formData.append('file', blob, 'audio.webm')
+        formData.append('model', 'whisper-large-v3-turbo')
+        
+        const whisperRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: formData,
+        })
+        
+        if (whisperRes.ok) {
+          const whisperData = await whisperRes.json()
+          finalTranscript = whisperData.text?.trim() || ''
+        } else {
+          console.error('Whisper API Error:', await whisperRes.text())
+        }
+      } catch (err) {
+        console.error('Whisper transcription failed:', err)
+      }
+    }
+
+    if (!finalTranscript) {
+      return NextResponse.json({ error: 'Không nhận diện được nội dung phát âm' }, { status: 400 })
+    }
+
+    const userPrompt = `Evaluate pronunciation: Target: "${targetWord || targetSentence}", Spoken: "${finalTranscript}"`
 
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']
     let lastError = ''

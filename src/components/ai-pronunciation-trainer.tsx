@@ -31,6 +31,7 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recognitionRef = useRef<any>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -69,6 +70,13 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
 
       mediaRecorder.start()
       setIsRecording(true)
@@ -101,8 +109,18 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
 
     setIsRecording(false)
 
+    let audioData = ''
+    if (audioChunksRef.current.length > 0) {
+      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+      audioData = await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve((reader.result as string).split(',')[1])
+        reader.readAsDataURL(audioBlob)
+      })
+    }
+
     const finalTranscript = transcript.trim()
-    if (!finalTranscript) {
+    if (!finalTranscript && !audioData) {
       setErrorMsg('Vui lòng cấp quyền micro và thử nói lại. Chưa nhận diện được giọng nói!')
       return
     }
@@ -119,6 +137,7 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
           targetWord,
           targetSentence,
           userTranscript: finalTranscript,
+          audioData,
         }),
       })
 
@@ -153,9 +172,7 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
     setResult(null)
     setTranscript('')
     setErrorMsg('')
-    
-    // As requested, simulate clearing audioChunks even if not stored in state here
-    // audioChunks.current = []
+    audioChunksRef.current = []
   }
 
   return (
