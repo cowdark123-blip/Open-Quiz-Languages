@@ -1,8 +1,29 @@
 'use client'
 
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { Sparkles, Brain, Mic, Flame, CheckCircle2, ArrowRight, Zap, Volume2, ShieldCheck } from 'lucide-react'
-import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Sparkles, Brain, Mic, Flame, ArrowRight, Volume2 } from 'lucide-react'
+
+function OAuthCallbackHandler() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const code = searchParams.get('code')
+    if (code) {
+      const supabase = createClient()
+      supabase.auth.exchangeCodeForSession(code).then(() => {
+        router.push('/dashboard')
+      }).catch(() => {
+        router.push('/dashboard')
+      })
+    }
+  }, [searchParams, router])
+
+  return null
+}
 
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState<'flashcard' | 'speaking'>('flashcard')
@@ -10,6 +31,10 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 relative overflow-hidden">
+      <Suspense fallback={null}>
+        <OAuthCallbackHandler />
+      </Suspense>
+
       {/* Dynamic Background Glows */}
       <div className="absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute top-[40%] right-[-10%] w-[600px] h-[600px] bg-cyan-600/15 rounded-full blur-[150px] pointer-events-none" />
@@ -124,7 +149,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Interactive Interactive Preview Section */}
+      {/* Interactive Preview Section */}
       <section id="demo" className="max-w-5xl mx-auto px-6 py-16">
         <div className="glass-panel p-8 rounded-3xl border border-slate-800 relative shadow-2xl">
           <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-800">
@@ -190,22 +215,6 @@ export default function LandingPage() {
                   )}
                 </div>
               </div>
-
-              {/* SRS Rating Buttons Preview */}
-              <div className="mt-8 flex items-center justify-center gap-3">
-                <button className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-semibold transition-all">
-                  Nhắc lại (1 ngày)
-                </button>
-                <button className="px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-xs font-semibold transition-all">
-                  Khó (3 ngày)
-                </button>
-                <button className="px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-xs font-semibold transition-all">
-                  Tốt (7 ngày)
-                </button>
-                <button className="px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition-all">
-                  Dễ (14 ngày)
-                </button>
-              </div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -216,7 +225,6 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* Audio Score Breakdown Card */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
                 <div className="glass-card p-4 rounded-xl">
                   <div className="text-3xl font-black text-emerald-400">92/100</div>
@@ -235,26 +243,6 @@ export default function LandingPage() {
                   <div className="text-xs text-slate-400 mt-1">Ngữ điệu</div>
                 </div>
               </div>
-
-              {/* Word Level Color Output */}
-              <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 text-left space-y-2">
-                <div className="text-xs text-slate-400 font-medium">Kết quả phân tích từ từ của giọng nói:</div>
-                <div className="flex flex-wrap gap-2 text-base font-medium leading-relaxed">
-                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Showing</span>
-                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">resilience</span>
-                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">during</span>
-                  <span className="px-2 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">tough</span>
-                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">projects</span>
-                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">is</span>
-                  <span className="px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">crucial</span>
-                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">for success.</span>
-                </div>
-                <div className="flex items-center gap-4 pt-3 text-xs text-slate-400 border-t border-slate-800/80">
-                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" /> Tốt (&gt;85%)</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" /> Khá (60-84%)</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400" /> Cần sửa (&lt;60%)</span>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -270,7 +258,6 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <span>Chính sách bảo mật</span>
             <span>Điều khoản sử dụng</span>
-            <span>Hướng dẫn Supabase</span>
           </div>
         </div>
       </footer>
