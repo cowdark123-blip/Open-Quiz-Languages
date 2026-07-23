@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Sparkles, Brain, Mic, Flame, ArrowRight, Volume2 } from 'lucide-react'
+import { Sparkles, Brain, Mic, Flame, ArrowRight, Volume2, CalendarClock } from 'lucide-react'
 
 function OAuthCallbackHandler() {
   const router = useRouter()
@@ -28,6 +28,21 @@ function OAuthCallbackHandler() {
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState<'flashcard' | 'speaking'>('flashcard')
   const [flipped, setFlipped] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  
+  const [isRecording, setIsRecording] = useState(false)
+  const [speechResult, setSpeechResult] = useState<{acc: number, pro: number, overall: number} | null>(null)
+  const recognitionRef = useRef<any>(null)
+
+  const [srsMessage, setSrsMessage] = useState<string | null>(null)
+  const [srsAnimating, setSrsAnimating] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setIsLoggedIn(true)
+    })
+  }, [])
 
   const playAudio = (text: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
@@ -66,24 +81,34 @@ export default function LandingPage() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-sm text-slate-300 font-medium">
-            <a href="#features" className="hover:text-purple-400 transition-colors">Tính năng</a>
-            <a href="#demo" className="hover:text-purple-400 transition-colors">Mô phỏng 3D</a>
+            <a href="#features" className="hover:text-purple-400 transition-colors">Tính năng AI</a>
             <a href="#srs" className="hover:text-purple-400 transition-colors">Thuật toán SRS</a>
           </nav>
 
           <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-slate-300 hover:text-white px-4 py-2 transition-colors"
-            >
-              Đăng nhập
-            </Link>
-            <Link
-              href="/register"
-              className="text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-5 py-2.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
-            >
-              Bắt đầu ngay
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-5 py-2.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all transform hover:-translate-y-0.5"
+              >
+                Vào Bảng Điều Khiển 🚀
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-slate-300 hover:text-white px-4 py-2 transition-colors"
+                >
+                  Đăng nhập
+                </Link>
+                <Link
+                  href="/register"
+                  className="text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-5 py-2.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  Bắt đầu ngay
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -105,14 +130,14 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-16">
           <Link
-            href="/register"
+            href={isLoggedIn ? "/dashboard" : "/register"}
             className="w-full sm:w-auto text-center px-8 py-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:opacity-95 text-white font-bold text-base shadow-xl shadow-purple-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
           >
-            <span>Tạo Bộ Từ Vựng AI</span>
+            <span>Bắt Đầu Ngay</span>
             <ArrowRight className="w-5 h-5" />
           </Link>
           <a
-            href="#demo"
+            href="#features"
             className="w-full sm:w-auto text-center px-8 py-4 rounded-xl glass-panel text-slate-200 font-semibold text-base hover:bg-slate-800/80 transition-all border border-slate-700/60"
           >
             Thử Bản Demo
@@ -160,24 +185,25 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Interactive Preview Section */}
-      <section id="demo" className="max-w-5xl mx-auto px-6 py-16">
+      {/* Feature 1: Flashcard & Speaking */}
+      <section id="features" className="max-w-5xl mx-auto px-6 py-16">
         <div className="glass-panel p-8 rounded-3xl border border-slate-800 relative shadow-2xl">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-800">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 pb-4 border-b border-slate-800 gap-4">
             <div>
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <span>Trải Nghiệm Trực Quan OpenQuiz AI</span>
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                <span>Thẻ Ghi Nhớ & AI Speaking</span>
               </h3>
-              <p className="text-xs text-slate-400">Thử nghiệm giao diện lật thẻ 3D và chấm điểm luyện nói</p>
+              <p className="text-xs text-slate-400 mt-1">Thử lật thẻ 3D và dùng Micro để nhận điểm phát âm tức thì</p>
             </div>
-            <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+            <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800 shrink-0">
               <button
                 onClick={() => setActiveTab('flashcard')}
                 className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   activeTab === 'flashcard' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Thẻ Ghi Nhớ 3D
+                Mặt Trực Quan
               </button>
               <button
                 onClick={() => setActiveTab('speaking')}
@@ -185,7 +211,7 @@ export default function LandingPage() {
                   activeTab === 'speaking' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Chấm Điểm Luyện Nói
+                Mặt Luyện Nói
               </button>
             </div>
           </div>
@@ -204,10 +230,10 @@ export default function LandingPage() {
                   <div className="absolute inset-0 w-full h-full glass-card rounded-2xl p-8 flex flex-col items-center justify-center text-center backface-hidden">
                     <div className="space-y-4">
                       <span className="text-xs uppercase tracking-widest font-semibold text-purple-400">Từ mục tiêu</span>
-                      <h2 className="text-4xl font-extrabold text-white tracking-wide">Resilience</h2>
-                      <p className="text-slate-400 text-sm italic font-mono">/rɪˈzɪl.jəns/</p>
+                      <h2 className="text-4xl font-extrabold text-white tracking-wide">Atmosphere</h2>
+                      <p className="text-slate-400 text-sm italic font-mono">/ˈæt.mə.sfɪər/</p>
                       <button 
-                        onClick={(e) => playAudio('Resilience', e)}
+                        onClick={(e) => playAudio('Atmosphere', e)}
                         className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-slate-300 hover:text-white"
                       >
                         <Volume2 className="w-4 h-4 text-purple-400" />
@@ -219,12 +245,12 @@ export default function LandingPage() {
                   <div className="absolute inset-0 w-full h-full glass-card rounded-2xl p-8 flex flex-col items-center justify-center text-center backface-hidden rotate-y-180">
                     <div className="space-y-3">
                       <span className="text-xs uppercase tracking-widest font-semibold text-cyan-400">Định nghĩa & Ví dụ</span>
-                      <h4 className="text-lg font-bold text-white">Khả năng phục hồi, sự kiên cường</h4>
+                      <h4 className="text-lg font-bold text-white">Bầu không khí, khí quyển</h4>
                       <p className="text-xs text-slate-300 bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-left">
-                        &quot;Her resilience helped her overcome difficult situations in life.&quot;
+                        "The atmosphere in the room was very tense before the exam."
                       </p>
                       <p className="text-xs text-purple-300 text-left">
-                        <strong>Từ đồng nghĩa:</strong> adaptability, strength, toughness
+                        <strong>Từ đồng nghĩa:</strong> air, mood, feeling, environment
                       </p>
                     </div>
                   </div>
@@ -232,34 +258,150 @@ export default function LandingPage() {
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="p-4 rounded-2xl bg-purple-950/40 border border-purple-800/40 text-left">
-                <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Tình huống Luyện nói AI:</span>
-                <p className="text-sm text-slate-200 mt-1">
-                  Hãy miêu tả một thử thách công việc gần đây và cách bạn sử dụng từ <strong className="text-purple-400">&quot;resilience&quot;</strong> để vượt qua nó.
-                </p>
+            <div className="space-y-6 max-w-2xl mx-auto">
+              <div className="text-center space-y-4">
+                <h4 className="text-3xl font-bold text-white">Atmosphere</h4>
+                <p className="text-sm text-slate-400">Bấm Micro và đọc to từ trên để nhận điểm</p>
+                <button
+                  onClick={() => {
+                    if (isRecording) {
+                      recognitionRef.current?.stop()
+                      setIsRecording(false)
+                      return
+                    }
+                    setSpeechResult(null)
+                    if (typeof window !== 'undefined') {
+                      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+                      if (SpeechRecognition) {
+                        recognitionRef.current = new SpeechRecognition()
+                        recognitionRef.current.lang = 'en-US'
+                        recognitionRef.current.continuous = false
+                        recognitionRef.current.interimResults = false
+                        recognitionRef.current.onstart = () => setIsRecording(true)
+                        recognitionRef.current.onresult = () => {
+                          setIsRecording(false)
+                          setSpeechResult({
+                            overall: Math.floor(Math.random() * 20) + 80,
+                            acc: Math.floor(Math.random() * 15) + 85,
+                            pro: Math.floor(Math.random() * 20) + 80
+                          })
+                        }
+                        recognitionRef.current.onerror = () => setIsRecording(false)
+                        recognitionRef.current.onend = () => setIsRecording(false)
+                        recognitionRef.current.start()
+                      } else {
+                        setIsRecording(true)
+                        setTimeout(() => {
+                          setIsRecording(false)
+                          setSpeechResult({ overall: 92, acc: 95, pro: 88 })
+                        }, 2000)
+                      }
+                    }
+                  }}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto transition-all ${
+                    isRecording 
+                      ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40' 
+                      : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:scale-105 shadow-lg shadow-purple-500/25'
+                  }`}
+                >
+                  <Mic className="w-7 h-7" />
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-                <div className="glass-card p-4 rounded-xl">
-                  <div className="text-3xl font-black text-emerald-400">92/100</div>
-                  <div className="text-xs text-slate-400 mt-1">Điểm Tổng Thể</div>
+              {speechResult && (
+                <div className="grid grid-cols-3 gap-4 pt-4 animate-in fade-in slide-in-from-bottom-2">
+                  <div className="glass-card p-4 rounded-xl text-center">
+                    <div className="text-2xl font-black text-emerald-400">{speechResult.overall}/100</div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">Điểm Tổng</div>
+                  </div>
+                  <div className="glass-card p-4 rounded-xl text-center">
+                    <div className="text-xl font-bold text-blue-400">{speechResult.acc}%</div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">Độ chính xác</div>
+                  </div>
+                  <div className="glass-card p-4 rounded-xl text-center">
+                    <div className="text-xl font-bold text-purple-400">{speechResult.pro}%</div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">Ngữ điệu</div>
+                  </div>
                 </div>
-                <div className="glass-card p-4 rounded-xl">
-                  <div className="text-2xl font-bold text-blue-400">95%</div>
-                  <div className="text-xs text-slate-400 mt-1">Độ chính xác</div>
-                </div>
-                <div className="glass-card p-4 rounded-xl">
-                  <div className="text-2xl font-bold text-purple-400">88%</div>
-                  <div className="text-xs text-slate-400 mt-1">Độ lưu khoát</div>
-                </div>
-                <div className="glass-card p-4 rounded-xl">
-                  <div className="text-2xl font-bold text-cyan-400">90%</div>
-                  <div className="text-xs text-slate-400 mt-1">Ngữ điệu</div>
-                </div>
-              </div>
+              )}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Feature 2: SRS Demo */}
+      <section id="srs" className="max-w-5xl mx-auto px-6 py-16">
+        <div className="glass-panel p-8 rounded-3xl border border-slate-800 relative shadow-2xl">
+          <div className="flex flex-col md:flex-row items-start justify-between mb-8 pb-4 border-b border-slate-800 gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <CalendarClock className="w-5 h-5 text-cyan-400" />
+                <span>Mô Phỏng Thuật Toán SRS SM-2</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">Hệ thống tính toán thời gian lặp lại tối ưu dựa trên độ khó</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-center py-6">
+            <div className={`w-full max-w-sm glass-card p-8 rounded-2xl text-center border-t-4 border-cyan-500 transition-all duration-300 ${srsAnimating ? 'scale-95 opacity-50 blur-sm' : 'scale-100 opacity-100'}`}>
+              <span className="text-xs text-slate-400 uppercase tracking-widest">Đang học từ</span>
+              <h4 className="text-3xl font-bold text-white my-4">Atmosphere</h4>
+              <p className="text-slate-300 mb-8">Bầu không khí, khí quyển</p>
+              
+              <div className="grid grid-cols-4 gap-2">
+                <button 
+                  onClick={() => {
+                    setSrsAnimating(true)
+                    setSrsMessage('Từ này đã được hẹn giờ ôn lại vào 1 ngày sau!')
+                    setTimeout(() => setSrsAnimating(false), 600)
+                  }} 
+                  className="p-2 rounded-xl bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 transition-colors"
+                >
+                  <div className="text-xs font-bold">Nhắc Lại</div>
+                  <div className="text-[10px] opacity-70">1 ngày</div>
+                </button>
+                <button 
+                  onClick={() => {
+                    setSrsAnimating(true)
+                    setSrsMessage('Từ này đã được hẹn giờ ôn lại vào 2 ngày sau!')
+                    setTimeout(() => setSrsAnimating(false), 600)
+                  }} 
+                  className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 text-orange-400 transition-colors"
+                >
+                  <div className="text-xs font-bold">Khó</div>
+                  <div className="text-[10px] opacity-70">2 ngày</div>
+                </button>
+                <button 
+                  onClick={() => {
+                    setSrsAnimating(true)
+                    setSrsMessage('Từ này đã được hẹn giờ ôn lại vào 4 ngày sau!')
+                    setTimeout(() => setSrsAnimating(false), 600)
+                  }} 
+                  className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 text-blue-400 transition-colors"
+                >
+                  <div className="text-xs font-bold">Tốt</div>
+                  <div className="text-[10px] opacity-70">4 ngày</div>
+                </button>
+                <button 
+                  onClick={() => {
+                    setSrsAnimating(true)
+                    setSrsMessage('Từ này đã được hẹn giờ ôn lại vào 7 ngày sau!')
+                    setTimeout(() => setSrsAnimating(false), 600)
+                  }} 
+                  className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 transition-colors"
+                >
+                  <div className="text-xs font-bold">Dễ</div>
+                  <div className="text-[10px] opacity-70">7 ngày</div>
+                </button>
+              </div>
+            </div>
+
+            {srsMessage && (
+              <div className="mt-8 px-6 py-3 rounded-full bg-cyan-950/50 border border-cyan-800 text-cyan-300 font-medium animate-in fade-in slide-in-from-bottom-4">
+                {srsMessage}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
