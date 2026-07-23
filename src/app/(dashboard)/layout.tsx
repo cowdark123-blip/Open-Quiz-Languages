@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Brain, LayoutDashboard, Layers, Mic, Flame, Sparkles, LogOut, Bell, BookOpen, User as UserIcon } from 'lucide-react'
+import { Brain, LayoutDashboard, Layers, Sparkles, LogOut, BookOpen, Flame } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
@@ -68,7 +68,6 @@ export default function DashboardLayout({
   const navItems = [
     { name: 'Bảng Điều Khiển', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Bộ Từ Vựng', href: '/sets', icon: Layers },
-    { name: 'Luyện Nói AI', href: '/speaking', icon: Mic },
     { name: 'Bài Học SRS', href: '/srs', icon: BookOpen },
   ]
 
@@ -86,7 +85,7 @@ export default function DashboardLayout({
               <span className="font-bold text-lg tracking-tight text-white flex items-center gap-1.5">
                 OpenQuiz <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">AI</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">Active Speaking SRS</span>
+              <span className="text-[10px] text-slate-400 font-medium">SRS & Pronunciation AI</span>
             </div>
           </Link>
 

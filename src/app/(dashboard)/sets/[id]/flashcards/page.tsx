@@ -3,22 +3,35 @@
 import { useState, useEffect, useCallback, use } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { INITIAL_MOCK_SETS } from '@/lib/mock-data'
-import { VocabItem } from '@/types/database'
-import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard } from 'lucide-react'
+import { fetchVocabSetById, fetchVocabItems } from '@/lib/supabase/data-service'
+import { VocabItem, VocabSet } from '@/types/database'
+import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
+import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard, Loader2 } from 'lucide-react'
 
 export default function FlashcardsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const setId = resolvedParams.id
 
-  const currentSet = INITIAL_MOCK_SETS.find((s) => s.id === setId) || INITIAL_MOCK_SETS[0]
-  const cards: VocabItem[] = currentSet.items || []
-
+  const [currentSet, setCurrentSet] = useState<VocabSet | null>(null)
+  const [cards, setCards] = useState<VocabItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
   const [masteredCount, setMasteredCount] = useState(0)
   const [reviewCount, setReviewCount] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true)
+      const setObj = await fetchVocabSetById(setId)
+      const itemsList = await fetchVocabItems(setId)
+      setCurrentSet(setObj)
+      setCards(itemsList)
+      setLoading(false)
+    }
+    loadData()
+  }, [setId])
 
   const currentCard = cards[currentIndex]
 
@@ -61,10 +74,8 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   // Keyboard Shortcuts Handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Avoid triggering when focused on input fields
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return
-
-      if (isCompleted) return
+      if (isCompleted || loading) return
 
       if (e.code === 'Space' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault()
@@ -85,12 +96,21 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isCompleted, handleNextCard, currentCard, playAudio])
+  }, [isCompleted, loading, handleNextCard, currentCard, playAudio])
+
+  if (loading) {
+    return (
+      <div className="py-16 text-center text-slate-400 flex flex-col items-center gap-3">
+        <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+        <span className="text-xs">Đang tải thẻ Flashcard 3D từ Supabase...</span>
+      </div>
+    )
+  }
 
   if (!currentCard || cards.length === 0) {
     return (
       <div className="max-w-xl mx-auto py-16 text-center space-y-4">
-        <h3 className="text-xl font-bold text-white">Chưa có từ vựng trong bộ này</h3>
+        <h3 className="text-xl font-bold text-white">Chưa có từ vựng nào trong bộ này</h3>
         <Link href={`/sets/${setId}`} className="text-purple-400 font-semibold hover:underline">
           Quay lại để thêm từ vựng mới
         </Link>
@@ -109,7 +129,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
           className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-card text-xs text-slate-300 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Chi Tiết Bộ Từ</span>
+          <span>{currentSet?.title || 'Bộ Từ Vựng'}</span>
         </Link>
 
         <div className="flex items-center gap-4">
@@ -137,9 +157,9 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       {!isCompleted ? (
         <div className="space-y-6">
           {/* 3D Flip Card Container */}
-          <div className="perspective-1000 w-full max-w-xl mx-auto h-[380px] cursor-pointer select-none">
+          <div className="perspective-1000 w-full max-w-xl mx-auto min-h-[420px] cursor-pointer select-none">
             <motion.div
-              className="w-full h-full relative transform-style-3d"
+              className="w-full h-full relative transform-style-3d min-h-[420px]"
               animate={{ rotateY: isFlipped ? 180 : 0 }}
               transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
               onClick={() => setIsFlipped(!isFlipped)}
@@ -175,18 +195,18 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
                   </button>
                 </div>
 
-                <div className="text-xs text-slate-500 font-medium">Lật thẻ để kiểm tra trí nhớ</div>
+                <div className="text-xs text-slate-500 font-medium">Lật thẻ để xem định nghĩa & Luyện phát âm AI</div>
               </div>
 
               {/* Back of Card */}
               <div
-                className={`absolute inset-0 w-full h-full glass-card rounded-3xl p-8 flex flex-col items-center justify-between text-center border border-purple-500/40 shadow-2xl backface-hidden rotate-y-180 bg-gradient-to-b from-slate-900/90 to-purple-950/40 ${
+                className={`absolute inset-0 w-full h-full glass-card rounded-3xl p-8 flex flex-col items-center justify-between text-center border border-purple-500/40 shadow-2xl backface-hidden rotate-y-180 bg-gradient-to-b from-slate-900/95 to-purple-950/50 overflow-y-auto ${
                   !isFlipped ? 'pointer-events-none' : ''
                 }`}
               >
-                <div className="w-full flex items-center justify-between text-xs text-slate-400">
+                <div className="w-full flex items-center justify-between text-xs text-slate-400 mb-4">
                   <span className="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 font-bold border border-cyan-500/20">
-                    Định Nghĩa & Ví Dụ
+                    Định Nghĩa & Luyện Phát Âm AI
                   </span>
                   <button
                     onClick={(e) => playAudio(currentCard.term, e)}
@@ -197,7 +217,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
                   </button>
                 </div>
 
-                <div className="space-y-4 my-auto text-left w-full">
+                <div className="space-y-4 text-left w-full my-auto">
                   <div>
                     <span className="text-[10px] uppercase font-bold text-slate-400">Định nghĩa tiếng Anh</span>
                     <p className="text-base font-bold text-white mt-0.5">{currentCard.definition}</p>
@@ -217,9 +237,15 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
                       <strong>Ví dụ:</strong> &quot;{currentCard.example_sentence}&quot;
                     </div>
                   )}
+
+                  {/* Integrated AI Pronunciation Module */}
+                  <AIPronunciationTrainer
+                    targetWord={currentCard.term}
+                    targetSentence={currentCard.example_sentence || undefined}
+                  />
                 </div>
 
-                <div className="text-xs text-slate-500 font-medium">Chọn mức độ ghi nhớ ở bên dưới</div>
+                <div className="text-xs text-slate-500 font-medium mt-4">Chọn mức độ ghi nhớ ở bên dưới</div>
               </div>
             </motion.div>
           </div>

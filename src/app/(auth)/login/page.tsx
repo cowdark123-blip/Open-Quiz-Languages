@@ -2,14 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Brain, Sparkles, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react'
+import { Brain, AlertCircle, ShieldCheck } from 'lucide-react'
 
 export default function LoginPage() {
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'github' | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
-  const router = useRouter()
 
   const handleOAuthLogin = async (provider: 'google' | 'github') => {
     setLoadingProvider(provider)
@@ -29,14 +27,10 @@ export default function LoginPage() {
         setErrorMsg(`Không thể kết nối ${provider}: ${error.message}`)
         setLoadingProvider(null)
       }
-    } catch {
-      // Fallback demo mode if Supabase OAuth isn't configured in dashboard yet
-      router.push('/dashboard')
+    } catch (err: any) {
+      setErrorMsg(`Lỗi kết nối: ${err.message || 'Vui lòng thử lại'}`)
+      setLoadingProvider(null)
     }
-  }
-
-  const handleDemoLogin = () => {
-    router.push('/dashboard')
   }
 
   return (
@@ -106,26 +100,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <div className="relative my-4 text-center">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-800" />
-          </div>
-          <span className="relative px-4 bg-[#0d1322] text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
-            Hoặc trải nghiệm nhanh
-          </span>
-        </div>
-
-        {/* Demo Mode Button */}
-        <button
-          onClick={handleDemoLogin}
-          className="w-full py-3 px-4 rounded-2xl glass-card hover:bg-slate-800 text-purple-300 font-bold text-xs border border-purple-500/30 transition-all flex items-center justify-center gap-2"
-        >
-          <Sparkles className="w-4 h-4 text-purple-400" />
-          <span>Vào Thẳng Bảng Điều Khiển (Demo Mode)</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-
-        <div className="text-center pt-2">
+        <div className="text-center pt-4">
           <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             Bảo mật thông tin người dùng với Supabase Auth SSL

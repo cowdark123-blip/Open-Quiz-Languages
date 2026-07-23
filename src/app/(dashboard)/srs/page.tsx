@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { VocabItem, UserSRSProgress } from '@/types/database'
 import { calculateSM2, getSM2IntervalPreviews, SRSGrade } from '@/lib/srs/sm2'
 import { fetchDueSRSItems, saveSRSProgress } from '@/lib/supabase/data-service'
+import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
 import { Volume2, ArrowLeft, RotateCcw, Brain, Trophy, Keyboard, Eye, Loader2, CheckCircle2 } from 'lucide-react'
 
 export default function GlobalSRSPage() {
@@ -259,6 +260,12 @@ export default function GlobalSRSPage() {
                     <strong>Ví dụ:</strong> &quot;{currentItem.example_sentence}&quot;
                   </div>
                 )}
+
+                {/* Integrated AI Pronunciation Module */}
+                <AIPronunciationTrainer
+                  targetWord={currentItem.term}
+                  targetSentence={currentItem.example_sentence || undefined}
+                />
               </motion.div>
             ) : (
               <button
