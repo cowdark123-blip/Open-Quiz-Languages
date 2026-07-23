@@ -42,8 +42,8 @@ Analyze carefully and return ONLY a raw valid JSON object with NO markdown forma
 
 For "word_scores", split the transcript word by word, score accuracy (0-100), and assign status ("good" for >=85, "average" for 60-84, "poor" for <60).`
 
-    // Model candidates list for fallback mechanism
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
+    // Official active models list
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash']
     let lastError = ''
     let parsedData = null
 
@@ -71,7 +71,7 @@ For "word_scores", split the transcript word by word, score accuracy (0-100), an
           if (textResponse) {
             const cleanJson = textResponse.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
             parsedData = JSON.parse(cleanJson)
-            break // Successfully evaluated!
+            break
           }
         } else {
           const errBody = await res.text()

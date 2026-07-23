@@ -11,7 +11,6 @@ export async function POST(req: Request) {
     const cleanTerm = term.trim()
     const apiKey = process.env.GEMINI_API_KEY
 
-    // Require GEMINI_API_KEY
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Chưa cấu hình GEMINI_API_KEY trong tệp .env.local' },
@@ -32,8 +31,8 @@ Return ONLY a valid raw JSON object matching this schema without markdown codebl
   "synonyms": "3-5 synonyms separated by commas"
 }`
 
-    // Model candidates list for fallback mechanism
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
+    // Official active models list
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash']
     let lastError = ''
     let parsedData = null
 
@@ -61,7 +60,7 @@ Return ONLY a valid raw JSON object matching this schema without markdown codebl
           if (textResponse) {
             const cleanJson = textResponse.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
             parsedData = JSON.parse(cleanJson)
-            break // Successfully generated content!
+            break
           }
         } else {
           const errBody = await res.text()
