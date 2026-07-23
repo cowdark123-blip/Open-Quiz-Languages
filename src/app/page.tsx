@@ -29,6 +29,17 @@ export default function LandingPage() {
   const [activeTab, setActiveTab] = useState<'flashcard' | 'speaking'>('flashcard')
   const [flipped, setFlipped] = useState(false)
 
+  const playAudio = (text: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'en-US'
+      utterance.rate = 0.9
+      window.speechSynthesis.speak(utterance)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 relative overflow-hidden">
       <Suspense fallback={null}>
@@ -186,22 +197,26 @@ export default function LandingPage() {
                 className="w-full max-w-md h-64 cursor-pointer perspective-1000 select-none group"
               >
                 <div
-                  className={`w-full h-full glass-card rounded-2xl p-8 flex flex-col items-center justify-center text-center transition-transform duration-500 transform-style-3d relative ${
+                  className={`w-full h-full relative transition-transform duration-500 transform-style-3d ${
                     flipped ? 'rotate-y-180' : ''
                   }`}
                 >
-                  {!flipped ? (
+                  <div className="absolute inset-0 w-full h-full glass-card rounded-2xl p-8 flex flex-col items-center justify-center text-center backface-hidden">
                     <div className="space-y-4">
                       <span className="text-xs uppercase tracking-widest font-semibold text-purple-400">Từ mục tiêu</span>
                       <h2 className="text-4xl font-extrabold text-white tracking-wide">Resilience</h2>
                       <p className="text-slate-400 text-sm italic font-mono">/rɪˈzɪl.jəns/</p>
-                      <button className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-slate-300 hover:text-white">
+                      <button 
+                        onClick={(e) => playAudio('Resilience', e)}
+                        className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-slate-300 hover:text-white"
+                      >
                         <Volume2 className="w-4 h-4 text-purple-400" />
                         <span>Phát âm chuẩn</span>
                       </button>
                       <p className="text-xs text-slate-500 pt-2">(Nhấp chuột để lật thẻ)</p>
                     </div>
-                  ) : (
+                  </div>
+                  <div className="absolute inset-0 w-full h-full glass-card rounded-2xl p-8 flex flex-col items-center justify-center text-center backface-hidden rotate-y-180">
                     <div className="space-y-3">
                       <span className="text-xs uppercase tracking-widest font-semibold text-cyan-400">Định nghĩa & Ví dụ</span>
                       <h4 className="text-lg font-bold text-white">Khả năng phục hồi, sự kiên cường</h4>
@@ -212,7 +227,7 @@ export default function LandingPage() {
                         <strong>Từ đồng nghĩa:</strong> adaptability, strength, toughness
                       </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
