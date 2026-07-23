@@ -9,7 +9,7 @@ import {
   seedInitialDatabase,
 } from '@/lib/supabase/data-service'
 import { VocabSet } from '@/types/database'
-import { Plus, BookOpen, Trash2, Search, FolderPlus, ArrowRight, X, Loader2, Database, Sparkles } from 'lucide-react'
+import { Plus, BookOpen, Trash2, Search, FolderPlus, ArrowRight, X, Loader2, Sparkles } from 'lucide-react'
 
 export default function SetsPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -88,14 +88,13 @@ export default function SetsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <span>Quản Lý Bộ Từ Vựng Supabase Cloud</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-              <Database className="w-3 h-3 text-emerald-400" />
-              <span>{sets.length} Bộ Trong DB</span>
+            <span>Quản Lý Bộ Từ Vựng</span>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              {sets.length} Bộ
             </span>
           </h2>
           <p className="text-slate-400 text-xs mt-1">
-            Tất cả bộ từ vựng và tiến trình học được lưu trữ trực tiếp 100% trên cơ sở dữ liệu Supabase PostgreSQL.
+            Tạo bộ từ vựng cá nhân hoặc chọn từ các lộ trình học biên soạn sẵn.
           </p>
         </div>
 
@@ -107,7 +106,7 @@ export default function SetsPage() {
               className="px-4 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs transition-all flex items-center gap-2"
             >
               {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-emerald-400" />}
-              <span>Tạo Mẫu Vào Supabase DB</span>
+              <span>Nạp Từ Vựng Mẫu</span>
             </button>
           )}
 
@@ -154,14 +153,14 @@ export default function SetsPage() {
       {loading ? (
         <div className="py-16 text-center text-slate-400 flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-          <span className="text-xs">Đang truy vấn bảng `public.vocab_sets` từ Supabase Cloud PostgreSQL...</span>
+          <span className="text-xs">Đang tải danh sách bộ từ vựng...</span>
         </div>
       ) : sets.length === 0 ? (
         <div className="py-16 glass-panel rounded-3xl border border-slate-800 text-center space-y-4 max-w-lg mx-auto">
-          <Database className="w-12 h-12 text-slate-600 mx-auto" />
-          <h3 className="text-lg font-bold text-white">Chưa Có Bộ Từ Vựng Nào Trong Database</h3>
+          <BookOpen className="w-12 h-12 text-slate-600 mx-auto" />
+          <h3 className="text-lg font-bold text-white">Chưa Có Bộ Từ Vựng Nào</h3>
           <p className="text-xs text-slate-400">
-            Bấm nút bên dưới để tạo bộ từ đầu tiên của bạn hoặc tạo dữ liệu mẫu trực tiếp vào Supabase PostgreSQL!
+            Hãy tạo bộ từ vựng đầu tiên của bạn hoặc nạp bộ từ vựng mẫu để bắt đầu học ngay!
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">
             <button
@@ -170,13 +169,13 @@ export default function SetsPage() {
               className="px-4 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs transition-all flex items-center gap-2"
             >
               {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span>Khởi Tạo Mẫu Vào Supabase DB</span>
+              <span>Nạp Từ Vựng Mẫu</span>
             </button>
             <button
               onClick={() => setIsModalOpen(true)}
               className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md"
             >
-              Tạo Bộ Từ Thủ Công
+              Tạo Bộ Từ Mới
             </button>
           </div>
         </div>
@@ -195,7 +194,7 @@ export default function SetsPage() {
                   </span>
                   <button
                     onClick={() => handleDeleteSet(set.id)}
-                    title="Xóa bộ từ khỏi Supabase"
+                    title="Xóa bộ từ"
                     className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -213,8 +212,8 @@ export default function SetsPage() {
               </div>
 
               <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> PostgreSQL DB
+                <span className="text-xs text-slate-400 font-medium">
+                  {set.item_count || 6} từ vựng
                 </span>
 
                 <div className="flex items-center gap-2">
@@ -246,7 +245,7 @@ export default function SetsPage() {
             <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <FolderPlus className="w-5 h-5 text-purple-400" />
-                <span>Tạo Bộ Từ Vựng Mới (Ghi Trực Tiếp Vào DB)</span>
+                <span>Tạo Bộ Từ Vựng Mới</span>
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -323,7 +322,7 @@ export default function SetsPage() {
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition-all flex items-center gap-2"
                 >
                   {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Lưu Vào Supabase PostgreSQL</span>
+                  <span>Tạo Bộ Từ Vựng</span>
                 </button>
               </div>
             </form>

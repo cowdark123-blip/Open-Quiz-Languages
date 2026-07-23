@@ -196,7 +196,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
         <div className="space-y-2">
           <p className="text-xs text-slate-300 max-w-xl">{currentSet?.description}</p>
           <div className="text-xs text-slate-400 font-medium">
-            Lưu trữ Supabase Cloud: <span className="text-purple-300 font-bold">{items.length} từ vựng</span>
+            Tổng cộng: <span className="text-purple-300 font-bold">{items.length} từ vựng</span>
           </div>
         </div>
 
@@ -432,7 +432,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition-all flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Lưu Vào Supabase Cloud</span>
+                  <span>{editingItem ? 'Lưu Thay Đổi' : 'Thêm Từ Vựng'}</span>
                 </button>
               </div>
             </form>

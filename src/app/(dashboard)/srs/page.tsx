@@ -140,7 +140,7 @@ export default function GlobalSRSPage() {
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 flex items-center gap-1.5">
             <Brain className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Supabase Cloud SRS</span>
+            <span>Thuật Toán SRS SM-2</span>
           </span>
           <button
             onClick={handleRestart}
@@ -337,13 +337,13 @@ export default function GlobalSRSPage() {
           <div className="space-y-2">
             <h3 className="text-2xl font-black text-white">Hoàn Thành Bài Ôn Tập SRS! 🎉</h3>
             <p className="text-slate-400 text-xs">
-              Tất cả từ vựng đã được lưu tiến trình vào cơ sở dữ liệu Supabase Cloud.
+              Tất cả từ vựng đã được thuật toán SM-2 cập nhật lịch ôn ngắt quãng tối ưu.
             </p>
           </div>
 
           <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-center">
             <div className="text-3xl font-black text-purple-300">{reviewedCount} Từ</div>
-            <div className="text-xs text-slate-400 mt-1">Đã được ghi nhận vào Supabase Cloud</div>
+            <div className="text-xs text-slate-400 mt-1">Đã được ghi nhận vào hệ thống</div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 pt-4">
