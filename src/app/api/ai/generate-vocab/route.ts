@@ -4,105 +4,73 @@ export async function POST(req: Request) {
   try {
     const { term } = await req.json()
 
-    if (!term || typeof term !== 'string') {
-      return NextResponse.json({ error: 'Từ vựng không hợp lệ' }, { status: 400 })
+    if (!term || typeof term !== 'string' || !term.trim()) {
+      return NextResponse.json({ error: 'Vui lòng nhập từ vựng cần tra cứu' }, { status: 400 })
     }
 
     const cleanTerm = term.trim()
     const apiKey = process.env.GEMINI_API_KEY
 
-    // 1. If Real Gemini API Key is configured in environment variables
-    if (apiKey) {
-      try {
-        const prompt = `You are an expert lexicographer and English teacher. Analyze the English vocabulary word "${cleanTerm}".
-Generate dictionary entries and return ONLY a valid raw JSON object matching this schema, without markdown triple backticks or additional text:
+    // Require GEMINI_API_KEY - No mock fallback allowed
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Chưa cấu hình GEMINI_API_KEY trong môi trường (.env.local hoặc Vercel)' },
+        { status: 400 }
+      )
+    }
+
+    const prompt = `You are an expert lexicographer and English dictionary engine.
+Lookup and analyze the English word or phrase: "${cleanTerm}".
+
+Return ONLY a valid raw JSON object matching this schema without markdown codeblocks or extra prose:
 {
   "term": "${cleanTerm}",
   "ipa": "/.../",
-  "definition": "Clear concise English definition for academic/professional usage",
-  "vietnamese_translation": "Dịch nghĩa tiếng Việt chính xác, tự nhiên",
-  "example_sentence": "A natural, realistic example sentence using the term",
-  "synonyms": ["synonym1", "synonym2", "synonym3"]
+  "definition": "Clear concise academic English definition",
+  "vietnamese_translation": "Dịch nghĩa tiếng Việt chính xác nhất",
+  "example_sentence": "A natural realistic example sentence containing the word",
+  "synonyms": "3-5 synonyms separated by commas"
 }`
 
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                responseMimeType: 'application/json',
-                temperature: 0.2,
-              },
-            }),
-          }
-        )
-
-        if (res.ok) {
-          const data = await res.json()
-          const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text
-
-          if (textResponse) {
-            const cleanJson = textResponse.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
-            const parsed = JSON.parse(cleanJson)
-            return NextResponse.json({ success: true, data: parsed, isRealAI: true })
-          }
-        }
-      } catch (err) {
-        console.warn('Gemini API call failed, using fallback engine:', err)
+    // Try Gemini 1.5 Flash endpoint
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.1,
+          },
+        }),
       }
+    )
+
+    if (!res.ok) {
+      const errText = await res.text()
+      return NextResponse.json(
+        { error: `Google Gemini API trả về lỗi (${res.status}): ${errText}` },
+        { status: res.status }
+      )
     }
 
-    // 2. Fallback Smart Dictionary Engine (if GEMINI_API_KEY is not set or network fails)
-    const fallbackDictionary: Record<string, any> = {
-      resilience: {
-        term: 'Resilience',
-        ipa: '/rɪˈzɪl.jəns/',
-        definition: 'The capacity to recover quickly from difficulties; toughness.',
-        vietnamese_translation: 'Khả năng phục hồi, sự kiên cường',
-        example_sentence: 'Her resilience helped her overcome severe challenges in her career.',
-        synonyms: ['adaptability', 'toughness', 'flexibility'],
-      },
-      sustainability: {
-        term: 'Sustainability',
-        ipa: '/səˌsteɪ.nəˈbɪl.ə.t̬i/',
-        definition: 'The ability to be maintained at a certain rate or level without depleting natural resources.',
-        vietnamese_translation: 'Sự phát triển bền vững',
-        example_sentence: 'Environmental sustainability is essential for future generations.',
-        synonyms: ['eco-friendliness', 'durability', 'continuity'],
-      },
-      innovation: {
-        term: 'Innovation',
-        ipa: '/ˌɪn.əˈveɪ.ʃən/',
-        definition: 'The introduction of something new, such as a new idea, method, or device.',
-        vietnamese_translation: 'Sự đổi mới, sáng tạo',
-        example_sentence: 'Technological innovation drives economic growth worldwide.',
-        synonyms: ['novelty', 'breakthrough', 'invention'],
-      },
-      collaborate: {
-        term: 'Collaborate',
-        ipa: '/kəˈlæb.ə.reɪt/',
-        definition: 'Work jointly on an activity or project to achieve a common goal.',
-        vietnamese_translation: 'Cộng tác, hợp tác làm việc',
-        example_sentence: 'Our team will collaborate with foreign experts on this project.',
-        synonyms: ['cooperate', 'partner', 'team up'],
-      },
+    const data = await res.json()
+    const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text
+
+    if (!textResponse) {
+      return NextResponse.json({ error: 'Không nhận được phản hồi từ Gemini AI' }, { status: 500 })
     }
 
-    const normalizedKey = cleanTerm.toLowerCase()
-    const foundData = fallbackDictionary[normalizedKey] || {
-      term: cleanTerm.charAt(0).toUpperCase() + cleanTerm.slice(1),
-      ipa: `/${cleanTerm.toLowerCase()}/`,
-      definition: `Clear definition for the English term "${cleanTerm}".`,
-      vietnamese_translation: `Nghĩa tiếng Việt của từ "${cleanTerm}"`,
-      example_sentence: `Using "${cleanTerm}" in conversation enhances your speaking score.`,
-      synonyms: ['related-word-1', 'related-word-2'],
-    }
+    const cleanJson = textResponse.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
+    const parsed = JSON.parse(cleanJson)
 
-    return NextResponse.json({ success: true, data: foundData, isRealAI: false })
+    return NextResponse.json({ success: true, data: parsed })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Lỗi xử lý AI' }, { status: 500 })
+    return NextResponse.json(
+      { error: error.message || 'Lỗi xử lý tra cứu từ vựng với Gemini AI' },
+      { status: 500 }
+    )
   }
 }

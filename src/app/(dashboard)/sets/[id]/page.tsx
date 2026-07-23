@@ -22,6 +22,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<VocabItem | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
+  const [aiErrorMsg, setAiErrorMsg] = useState('')
 
   // Item Form state
   const [term, setTerm] = useState('')
@@ -51,6 +52,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     setExample('')
     setTranslation('')
     setSynonymsInput('')
+    setAiErrorMsg('')
     setIsModalOpen(true)
   }
 
@@ -62,6 +64,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     setExample(item.example_sentence || '')
     setTranslation(item.vietnamese_translation || '')
     setSynonymsInput(item.synonyms ? item.synonyms.join(', ') : '')
+    setAiErrorMsg('')
     setIsModalOpen(true)
   }
 
@@ -69,6 +72,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
   const handleAIAutoFill = async () => {
     if (!term.trim()) return
     setAiLoading(true)
+    setAiErrorMsg('')
 
     try {
       const res = await fetch('/api/ai/generate-vocab', {
@@ -78,7 +82,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
       })
       const result = await res.json()
 
-      if (result.success && result.data) {
+      if (res.ok && result.success && result.data) {
         const d = result.data
         if (d.term) setTerm(d.term)
         if (d.definition) setDefinition(d.definition)
@@ -86,9 +90,11 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
         if (d.example_sentence) setExample(d.example_sentence)
         if (d.vietnamese_translation) setTranslation(d.vietnamese_translation)
         if (d.synonyms) setSynonymsInput(Array.isArray(d.synonyms) ? d.synonyms.join(', ') : d.synonyms)
+      } else {
+        setAiErrorMsg(result.error || 'Lỗi không xác định khi gọi AI Gemini API')
       }
-    } catch (err) {
-      console.error('Lỗi khi gọi AI Auto-fill:', err)
+    } catch (err: any) {
+      setAiErrorMsg(err.message || 'Lỗi kết nối tới máy chủ AI')
     } finally {
       setAiLoading(false)
     }
@@ -331,6 +337,13 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
             </div>
 
             <form onSubmit={handleSaveItem} className="space-y-4">
+              {aiErrorMsg && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-start gap-2">
+                  <span className="font-bold">⚠️</span>
+                  <span>{aiErrorMsg}</span>
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-slate-300">Từ / Cụm từ tiếng Anh *</label>
