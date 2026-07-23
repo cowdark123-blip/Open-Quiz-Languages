@@ -95,8 +95,15 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
 
   const stopRecordingAndEvaluate = async () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop())
+      await new Promise<void>((resolve) => {
+        if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.onstop = () => resolve()
+          mediaRecorderRef.current.stop()
+          mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop())
+        } else {
+          resolve()
+        }
+      })
     }
 
     if (recognitionRef.current) {
