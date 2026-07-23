@@ -139,3 +139,20 @@ CREATE POLICY "SRS Progress Own Access" ON public.user_srs_progress FOR ALL USIN
 
 DROP POLICY IF EXISTS "Speaking Sessions Own Access" ON public.speaking_sessions;
 CREATE POLICY "Speaking Sessions Own Access" ON public.speaking_sessions FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 6. QUIZ RESULTS TABLE
+CREATE TABLE IF NOT EXISTS public.quiz_results (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
+  set_id UUID REFERENCES public.vocab_sets(id) ON DELETE CASCADE NOT NULL,
+  score FLOAT NOT NULL,
+  total_questions INT NOT NULL,
+  correct_answers INT NOT NULL,
+  wrong_answers INT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.quiz_results ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Quiz Results Own Access" ON public.quiz_results;
+CREATE POLICY "Quiz Results Own Access" ON public.quiz_results FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

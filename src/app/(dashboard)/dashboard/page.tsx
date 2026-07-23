@@ -10,7 +10,7 @@ import {
   updateUserStreak,
 } from '@/lib/supabase/data-service'
 import { VocabSet } from '@/types/database'
-import { Flame, Brain, BookOpen, Mic, Sparkles, CheckCircle2, Clock, Play, Plus, Loader2 } from 'lucide-react'
+import { Flame, Brain, BookOpen, Mic, Sparkles, CheckCircle2, Clock, Play, Plus, Loader2, MessageSquare, PenTool, BookText, Headphones, Trophy } from 'lucide-react'
 
 export default function DashboardPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -109,53 +109,67 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Metrics Summary Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-xs font-medium text-slate-400">Chuỗi Ngày Học</div>
-            <div className="text-3xl font-black text-amber-400 mt-1 flex items-center gap-2">
-              <span>{userProfile.streak} Ngày</span>
-              <Flame className="w-6 h-6 text-amber-500 fill-amber-500/30" />
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1">Lưu trữ Supabase PostgreSQL</div>
+      {/* Ecosystem Navigation Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <Link href="/sets" className="glass-card p-5 rounded-2xl border border-slate-800 hover:border-purple-500/50 hover:bg-purple-900/10 flex flex-col items-center justify-center text-center gap-3 transition-all group">
+          <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400 group-hover:scale-110 transition-transform">
+            <BookOpen className="w-8 h-8" />
           </div>
-        </div>
+          <div>
+            <div className="text-sm font-bold text-white group-hover:text-purple-300">Bộ Từ Vựng & SRS</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Flashcards & Thuật toán SM-2</div>
+          </div>
+        </Link>
 
-        <div className="glass-card p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+        <Link href="/conversation" className="glass-card p-5 rounded-2xl border border-slate-800 hover:border-blue-500/50 hover:bg-blue-900/10 flex flex-col items-center justify-center text-center gap-3 transition-all group">
+          <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400 group-hover:scale-110 transition-transform">
+            <MessageSquare className="w-8 h-8" />
+          </div>
           <div>
-            <div className="text-xs font-medium text-slate-400">Bộ Từ Vựng Thật</div>
-            <div className="text-3xl font-black text-white mt-1">{sets.length} Bộ</div>
-            <div className="text-[11px] text-emerald-400 mt-1 font-medium flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Đã kết nối Database
-            </div>
+            <div className="text-sm font-bold text-white group-hover:text-blue-300">Hội Thoại AI</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Roleplay thực tế & Sửa lỗi</div>
           </div>
-          <div className="p-3 rounded-xl bg-purple-500/10 text-purple-400">
-            <BookOpen className="w-6 h-6" />
-          </div>
-        </div>
+        </Link>
 
-        <div className="glass-card p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+        <Link href="/grammar" className="glass-card p-5 rounded-2xl border border-slate-800 hover:border-emerald-500/50 hover:bg-emerald-900/10 flex flex-col items-center justify-center text-center gap-3 transition-all group">
+          <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform">
+            <PenTool className="w-8 h-8" />
+          </div>
           <div>
-            <div className="text-xs font-medium text-slate-400">Từ Vựng Cần Ôn</div>
-            <div className="text-3xl font-black text-cyan-400 mt-1">{dueSrsCount} Từ</div>
-            <div className="text-[11px] text-slate-500 mt-1">Lịch ôn hôm nay</div>
+            <div className="text-sm font-bold text-white group-hover:text-emerald-300">Trợ Lý Ngữ Pháp</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Sửa lỗi & Luyện tập ngữ pháp</div>
           </div>
-          <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400">
-            <Brain className="w-6 h-6" />
-          </div>
-        </div>
+        </Link>
 
-        <div className="glass-card p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+        <Link href="/reading" className="glass-card p-5 rounded-2xl border border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-900/10 flex flex-col items-center justify-center text-center gap-3 transition-all group">
+          <div className="p-3 rounded-2xl bg-cyan-500/10 text-cyan-400 group-hover:scale-110 transition-transform">
+            <BookText className="w-8 h-8" />
+          </div>
           <div>
-            <div className="text-xs font-medium text-slate-400">Tích Hợp AI</div>
-            <div className="text-3xl font-black text-purple-400 mt-1">Groq Llama3</div>
-            <div className="text-[11px] text-slate-500 mt-1">Tự động điền & Luyện nói</div>
+            <div className="text-sm font-bold text-white group-hover:text-cyan-300">Đọc Hiểu AI</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Đoạn văn tự động & Trắc nghiệm</div>
           </div>
-          <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400">
-            <Sparkles className="w-6 h-6" />
+        </Link>
+
+        <Link href="/dictation" className="glass-card p-5 rounded-2xl border border-slate-800 hover:border-amber-500/50 hover:bg-amber-900/10 flex flex-col items-center justify-center text-center gap-3 transition-all group">
+          <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400 group-hover:scale-110 transition-transform">
+            <Headphones className="w-8 h-8" />
           </div>
-        </div>
+          <div>
+            <div className="text-sm font-bold text-white group-hover:text-amber-300">Nghe Chép Chính Tả</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Luyện nghe sâu (Dictation)</div>
+          </div>
+        </Link>
+
+        <Link href="/quiz" className="glass-card p-5 rounded-2xl border border-slate-800 hover:border-rose-500/50 hover:bg-rose-900/10 flex flex-col items-center justify-center text-center gap-3 transition-all group">
+          <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-400 group-hover:scale-110 transition-transform">
+            <Trophy className="w-8 h-8" />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-white group-hover:text-rose-300">Bài Kiểm Tra</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Trắc nghiệm chọn từ & Điểm số</div>
+          </div>
+        </Link>
       </div>
 
       {/* Main Section Header */}
@@ -253,11 +267,11 @@ export default function DashboardPage() {
                   <span>SRS Ôn</span>
                 </Link>
                 <Link
-                  href="/speaking"
-                  className="py-2 rounded-xl bg-slate-900/80 hover:bg-emerald-600/30 text-slate-300 hover:text-emerald-300 border border-slate-800 text-[11px] font-semibold text-center transition-all flex flex-col items-center gap-1"
+                  href="/quiz"
+                  className="py-2 rounded-xl bg-slate-900/80 hover:bg-rose-600/30 text-slate-300 hover:text-rose-300 border border-slate-800 text-[11px] font-semibold text-center transition-all flex flex-col items-center gap-1"
                 >
-                  <Mic className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Luyện Nói</span>
+                  <Trophy className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Kiểm Tra</span>
                 </Link>
               </div>
             </div>

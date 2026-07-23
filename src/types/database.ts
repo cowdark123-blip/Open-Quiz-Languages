@@ -72,3 +72,14 @@ export interface SpeakingSession {
   } | null
   created_at: string
 }
+
+export interface QuizResult {
+  id: string
+  user_id: string
+  set_id: string
+  score: number
+  total_questions: number
+  correct_answers: number
+  wrong_answers: number
+  created_at: string
+}

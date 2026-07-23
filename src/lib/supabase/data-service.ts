@@ -272,6 +272,30 @@ export async function saveSRSProgress(progress: Partial<UserSRSProgress>): Promi
   }
 }
 
+export async function saveQuizResult(setId: string, score: number, total: number): Promise<boolean> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id || '00000000-0000-0000-0000-000000000000'
+
+    const payload = {
+      user_id: userId,
+      set_id: setId,
+      score: score,
+      total_questions: total,
+    }
+
+    const { error } = await supabase.from('quiz_results').insert([payload])
+    
+    // Update streak for active learning activity
+    await updateUserStreak(userId)
+
+    return !error
+  } catch {
+    return false
+  }
+}
+
 export async function saveSpeakingSession(session: Partial<SpeakingSession>): Promise<boolean> {
   const supabase = createClient()
   try {
