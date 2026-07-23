@@ -22,6 +22,51 @@ export async function getCurrentUserProfile(): Promise<{ user: any; profile: Pro
   }
 }
 
+export async function updateUserStreak(userId?: string): Promise<number> {
+  const supabase = createClient()
+  try {
+    let targetUserId = userId
+    if (!targetUserId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      targetUserId = user?.id
+    }
+    if (!targetUserId) return 1
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', targetUserId)
+      .single()
+
+    const todayStr = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+    let newStreak = 1
+    const lastActive = profile?.last_active_date
+
+    if (lastActive === todayStr) {
+      newStreak = profile?.streak_count || 1
+    } else if (lastActive === yesterdayStr) {
+      newStreak = (profile?.streak_count || 0) + 1
+    } else {
+      newStreak = 1
+    }
+
+    await supabase.from('profiles').upsert({
+      id: targetUserId,
+      streak_count: newStreak,
+      last_active_date: todayStr,
+    })
+
+    return newStreak
+  } catch (err) {
+    console.error('Update streak error:', err)
+    return 1
+  }
+}
+
 export async function fetchUserVocabSets(userId?: string): Promise<VocabSet[]> {
   const supabase = createClient()
   try {
@@ -71,6 +116,48 @@ export async function fetchVocabItems(setId: string): Promise<VocabItem[]> {
 
     if (error || !data) return []
     return data as VocabItem[]
+  } catch {
+    return []
+  }
+}
+
+export async function fetchDueSRSItems(): Promise<(VocabItem & { srsProgress?: UserSRSProgress })[]> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id || '00000000-0000-0000-0000-000000000000'
+
+    const nowIso = new Date().toISOString()
+    const { data: progressItems } = await supabase
+      .from('user_srs_progress')
+      .select('*, vocab_items(*)')
+      .eq('user_id', userId)
+      .lte('next_review_date', nowIso)
+
+    if (progressItems && progressItems.length > 0) {
+      return progressItems
+        .filter((p: any) => p.vocab_items)
+        .map((p: any) => ({
+          ...p.vocab_items,
+          srsProgress: p as UserSRSProgress,
+        }))
+    }
+
+    // If no progress records lte nowIso exist, fetch user's sets items so user can initialize SM-2
+    const { data: userSets } = await supabase
+      .from('vocab_sets')
+      .select('id')
+      .or(`user_id.eq.${userId},is_public.eq.true`)
+
+    if (!userSets || userSets.length === 0) return []
+    const setIds = userSets.map((s) => s.id)
+
+    const { data: allItems } = await supabase
+      .from('vocab_items')
+      .select('*')
+      .in('set_id', setIds)
+
+    return (allItems as VocabItem[]) || []
   } catch {
     return []
   }
@@ -148,12 +235,22 @@ export async function saveSRSProgress(progress: Partial<UserSRSProgress>): Promi
   const supabase = createClient()
   try {
     const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id || '00000000-0000-0000-0000-000000000000'
+
     const payload = {
       ...progress,
-      user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+      user_id: userId,
+      last_reviewed_at: new Date().toISOString(),
     }
 
-    const { error } = await supabase.from('user_srs_progress').insert([payload])
+    // Upsert into user_srs_progress
+    const { error } = await supabase.from('user_srs_progress').upsert(payload, {
+      onConflict: 'user_id,item_id',
+    })
+
+    // Update streak for active learning activity
+    await updateUserStreak(userId)
+
     return !error
   } catch {
     return false
@@ -164,21 +261,24 @@ export async function saveSpeakingSession(session: Partial<SpeakingSession>): Pr
   const supabase = createClient()
   try {
     const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id || '00000000-0000-0000-0000-000000000000'
+
     const payload = {
       ...session,
-      user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+      user_id: userId,
     }
 
     const { error } = await supabase.from('speaking_sessions').insert([payload])
+    
+    // Update streak for active speaking activity
+    await updateUserStreak(userId)
+
     return !error
   } catch {
     return false
   }
 }
 
-/**
- * Seeds IELTS Sample Set directly into current user's Supabase account
- */
 export async function seedSampleSetForUser(): Promise<VocabSet | null> {
   const supabase = createClient()
   try {

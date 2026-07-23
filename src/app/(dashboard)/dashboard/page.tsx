@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import {
   fetchUserVocabSets,
   getCurrentUserProfile,
   seedSampleSetForUser,
+  fetchDueSRSItems,
+  updateUserStreak,
 } from '@/lib/supabase/data-service'
 import { VocabSet } from '@/types/database'
-import { Flame, Brain, BookOpen, Mic, ArrowRight, Sparkles, CheckCircle2, Clock, Play, Plus, Award, Loader2, Database } from 'lucide-react'
+import { Flame, Brain, BookOpen, Mic, Sparkles, CheckCircle2, Clock, Play, Plus, Loader2 } from 'lucide-react'
 
 export default function DashboardPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -30,22 +31,20 @@ export default function DashboardPage() {
     const userId = user?.id
 
     if (user) {
+      // Recalculate streak
+      const activeStreak = await updateUserStreak(user.id)
       setUserProfile({
         displayName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Học Viên',
-        streak: profile?.streak_count || 1,
+        streak: activeStreak || profile?.streak_count || 1,
       })
     }
 
     const userSets = await fetchUserVocabSets(userId)
     setSets(userSets)
 
-    // Calculate due SRS items from Supabase
-    const supabase = createClient()
-    const { data: srsData } = await supabase
-      .from('user_srs_progress')
-      .select('id')
-
-    setDueSrsCount(srsData ? srsData.length : userSets.length > 0 ? 6 : 0)
+    // Calculate real due SRS items from Supabase
+    const dueItems = await fetchDueSRSItems()
+    setDueSrsCount(dueItems.length)
     setLoading(false)
   }
 
@@ -62,28 +61,52 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Top Banner: Daily Review Alert */}
+      {/* Top Banner: Daily Review Alert or Congratulation */}
       <div className="glass-panel p-6 rounded-3xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-slate-900/80 to-indigo-950/40 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
         <div className="space-y-2 text-left z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-semibold">
             <Clock className="w-3.5 h-3.5 text-purple-400" />
             <span>Thuật toán Lặp lại Ngắt quãng SRS SM-2</span>
           </div>
-          <h2 className="text-2xl font-black text-white">
-            Chào {userProfile.displayName}! Bạn có {dueSrsCount} từ vựng cần ôn tập hôm nay
-          </h2>
-          <p className="text-slate-400 text-xs md:text-sm max-w-xl">
-            Ôn tập đúng thời điểm ngắt quãng theo thuật toán SuperMemo-2 giúp chuyển từ vựng vào trí nhớ dài hạn.
-          </p>
+
+          {dueSrsCount > 0 ? (
+            <>
+              <h2 className="text-2xl font-black text-white">
+                Chào {userProfile.displayName}! Hôm nay bạn có {dueSrsCount} từ vựng cần ôn tập
+              </h2>
+              <p className="text-slate-400 text-xs md:text-sm max-w-xl">
+                Ôn tập đúng thời điểm ngắt quãng giúp chuyển từ vựng vào trí nhớ dài hạn.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                <span>Bạn đã hoàn thành toàn bộ bài ôn tập hôm nay! 🎉</span>
+              </h2>
+              <p className="text-slate-400 text-xs md:text-sm max-w-xl">
+                Tuyệt vời! Tất cả từ vựng đã được thuật toán SM-2 hẹn lịch ôn tập vào các ngày tiếp theo.
+              </p>
+            </>
+          )}
         </div>
 
-        <Link
-          href="/srs"
-          className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-500/25 transition-all transform hover:scale-105 shrink-0 flex items-center gap-2"
-        >
-          <Play className="w-4 h-4 fill-white" />
-          <span>Bắt Đầu Bài Ôn Tập SRS</span>
-        </Link>
+        {dueSrsCount > 0 ? (
+          <Link
+            href="/srs"
+            className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-500/25 transition-all transform hover:scale-105 shrink-0 flex items-center gap-2"
+          >
+            <Play className="w-4 h-4 fill-white" />
+            <span>Bắt Đầu Bài Ôn Tập SRS ({dueSrsCount})</span>
+          </Link>
+        ) : (
+          <Link
+            href="/sets"
+            className="px-6 py-3.5 rounded-2xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-bold text-sm transition-all shrink-0 flex items-center gap-2"
+          >
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>Xem Danh Sách Từ Vựng</span>
+          </Link>
+        )}
       </div>
 
       {/* Metrics Summary Grid */}
@@ -95,7 +118,7 @@ export default function DashboardPage() {
               <span>{userProfile.streak} Ngày</span>
               <Flame className="w-6 h-6 text-amber-500 fill-amber-500/30" />
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">Ghi nhận Supabase Cloud</div>
+            <div className="text-[11px] text-slate-500 mt-1">Lưu trữ Supabase PostgreSQL</div>
           </div>
         </div>
 
@@ -126,7 +149,7 @@ export default function DashboardPage() {
         <div className="glass-card p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
           <div>
             <div className="text-xs font-medium text-slate-400">Tích Hợp AI</div>
-            <div className="text-3xl font-black text-purple-400 mt-1">Gemini</div>
+            <div className="text-3xl font-black text-purple-400 mt-1">Groq Llama3</div>
             <div className="text-[11px] text-slate-500 mt-1">Tự động điền & Luyện nói</div>
           </div>
           <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400">
