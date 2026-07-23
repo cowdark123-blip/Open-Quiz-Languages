@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   fetchVocabSets,
   insertVocabSet,
@@ -12,13 +13,14 @@ import {
 import { VocabSet } from '@/types/database'
 import { Plus, BookOpen, Trash2, Edit2, Search, FolderPlus, ArrowRight, X, Loader2, Sparkles } from 'lucide-react'
 
-export default function SetsPage() {
+function SetsPageContent() {
   const [sets, setSets] = useState<VocabSet[]>([])
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const searchParams = useSearchParams()
 
   // Form State for Create/Edit Set Modal
   const [editingSet, setEditingSet] = useState<VocabSet | null>(null)
@@ -56,6 +58,12 @@ export default function SetsPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      handleOpenCreateSet()
+    }
+  }, [searchParams])
 
   const handleSeedDatabase = async () => {
     setSeeding(true)
@@ -373,5 +381,13 @@ export default function SetsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function SetsPage() {
+  return (
+    <Suspense fallback={<div className="py-16 text-center text-slate-400">Đang tải...</div>}>
+      <SetsPageContent />
+    </Suspense>
   )
 }
