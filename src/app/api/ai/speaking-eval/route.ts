@@ -42,8 +42,15 @@ Analyze carefully and return ONLY a raw valid JSON object with NO markdown forma
 
 For "word_scores", split the transcript word by word, score accuracy (0-100), and assign status ("good" for >=85, "average" for 60-84, "poor" for <60).`
 
-    // Official active models list
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    // Official active models with '-latest' & '-exp' fallbacks
+    const models = [
+      'gemini-1.5-flash-latest',
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-pro-latest',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-pro',
+    ]
     let lastError = ''
     let parsedData = null
 

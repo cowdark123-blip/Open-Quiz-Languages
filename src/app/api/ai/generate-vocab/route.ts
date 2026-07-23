@@ -31,8 +31,15 @@ Return ONLY a valid raw JSON object matching this schema without markdown codebl
   "synonyms": "3-5 synonyms separated by commas"
 }`
 
-    // Official active models list
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    // Official active models with '-latest' & '-exp' fallbacks
+    const models = [
+      'gemini-1.5-flash-latest',
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-pro-latest',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-pro',
+    ]
     let lastError = ''
     let parsedData = null
 
