@@ -9,60 +9,59 @@ export async function POST(req: Request) {
     }
 
     const cleanTerm = term.trim()
-    const apiKey = process.env.GEMINI_API_KEY
+    const apiKey = process.env.GROQ_API_KEY
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Chưa cấu hình GEMINI_API_KEY trong tệp .env.local' },
+        { error: 'Chưa cấu hình GROQ_API_KEY trong tệp .env.local' },
         { status: 400 }
       )
     }
 
-    const prompt = `You are an expert lexicographer and English dictionary engine.
-Lookup and analyze the English word or phrase: "${cleanTerm}".
-
-Return ONLY a valid raw JSON object matching this schema without markdown codeblocks or extra prose:
+    const systemPrompt = `You are an expert English lexicographer. Analyze the vocabulary word/phrase provided by the user.
+You MUST output ONLY a valid JSON object matching this schema:
 {
   "term": "${cleanTerm}",
-  "ipa": "/.../",
+  "ipa": "International Phonetic Alphabet representation (e.g. /ˈæt.məs.fɪər/)",
   "definition": "Clear concise academic English definition",
   "vietnamese_translation": "Dịch nghĩa tiếng Việt chính xác nhất",
-  "example_sentence": "A natural realistic example sentence containing the word",
+  "example_sentence": "A natural realistic example sentence containing the term",
   "synonyms": "3-5 synonyms separated by commas"
 }`
 
-    // v1beta endpoint with fallback models array
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']
     let lastError = ''
     let parsedData = null
 
     for (const model of models) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-        const res = await fetch(url, {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.1,
-            },
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Lookup vocabulary term: "${cleanTerm}"` },
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.1,
           }),
         })
 
         if (res.ok) {
           const data = await res.json()
-          const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text
-
-          if (textResponse) {
-            const cleanJson = textResponse.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
-            parsedData = JSON.parse(cleanJson)
+          const content = data?.choices?.[0]?.message?.content
+          if (content) {
+            parsedData = JSON.parse(content)
             break
           }
         } else {
-          const errBody = await res.text()
-          lastError = `[${model}] HTTP ${res.status}: ${errBody}`
+          const errText = await res.text()
+          lastError = `[${model}] HTTP ${res.status}: ${errText}`
         }
       } catch (err: any) {
         lastError = `[${model}] Error: ${err.message}`
@@ -74,12 +73,12 @@ Return ONLY a valid raw JSON object matching this schema without markdown codebl
     }
 
     return NextResponse.json(
-      { error: `Không thể kết nối Gemini API (${lastError})` },
+      { error: `Không thể kết nối Groq AI (${lastError})` },
       { status: 500 }
     )
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || 'Lỗi xử lý tra cứu từ vựng với Gemini AI' },
+      { error: error.message || 'Lỗi xử lý tra cứu từ vựng với Groq AI' },
       { status: 500 }
     )
   }

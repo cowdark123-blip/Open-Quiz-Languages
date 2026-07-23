@@ -9,23 +9,19 @@ export async function POST(req: Request) {
     }
 
     const words = targetWords && Array.isArray(targetWords) ? targetWords : ['resilience', 'meticulous']
-    const apiKey = process.env.GEMINI_API_KEY
+    const apiKey = process.env.GROQ_API_KEY
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Chưa cấu hình GEMINI_API_KEY trong tệp .env.local' },
+        { error: 'Chưa cấu hình GROQ_API_KEY trong tệp .env.local' },
         { status: 400 }
       )
     }
 
-    const prompt = `You are a strict English Speaking Examiner (IELTS/CEFR standard).
-Evaluate the user's spoken response based on the following criteria:
+    const systemPrompt = `You are a strict English Speaking Examiner (IELTS/CEFR standard).
+Evaluate the user's spoken response based on the scenario prompt and target mandatory words.
 
-Scenario Prompt: "${scenarioPrompt || 'Describe a recent challenge at work or school.'}"
-Target Mandatory Words to Use: ${words.join(', ')}
-User Spoken Transcript: "${transcript}"
-
-Analyze carefully and return ONLY a raw valid JSON object with NO markdown formatting, matching this exact schema:
+You MUST output ONLY a valid JSON object matching this exact schema:
 {
   "overall_score": 88,
   "accuracy_score": 90,
@@ -42,38 +38,43 @@ Analyze carefully and return ONLY a raw valid JSON object with NO markdown forma
 
 For "word_scores", split the transcript word by word, score accuracy (0-100), and assign status ("good" for >=85, "average" for 60-84, "poor" for <60).`
 
-    // v1beta endpoint with fallback models array
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    const userPrompt = `Scenario Prompt: "${scenarioPrompt || 'Describe a recent challenge at work or school.'}"
+Target Mandatory Words to Use: ${words.join(', ')}
+User Spoken Transcript: "${transcript}"`
+
+    const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']
     let lastError = ''
     let parsedData = null
 
     for (const model of models) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-        const res = await fetch(url, {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.2,
-            },
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.2,
           }),
         })
 
         if (res.ok) {
           const data = await res.json()
-          const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text
-
-          if (textResponse) {
-            const cleanJson = textResponse.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
-            parsedData = JSON.parse(cleanJson)
+          const content = data?.choices?.[0]?.message?.content
+          if (content) {
+            parsedData = JSON.parse(content)
             break
           }
         } else {
-          const errBody = await res.text()
-          lastError = `[${model}] HTTP ${res.status}: ${errBody}`
+          const errText = await res.text()
+          lastError = `[${model}] HTTP ${res.status}: ${errText}`
         }
       } catch (err: any) {
         lastError = `[${model}] Error: ${err.message}`
@@ -85,7 +86,7 @@ For "word_scores", split the transcript word by word, score accuracy (0-100), an
     }
 
     return NextResponse.json(
-      { error: `Không thể kết nối Gemini Speaking AI (${lastError})` },
+      { error: `Không thể kết nối Groq Speaking AI (${lastError})` },
       { status: 500 }
     )
   } catch (error: any) {
