@@ -10,6 +10,7 @@ OpenQuiz AI is an open-source, modern vocabulary learning platform built with **
 *   **✨ AI Auto-Fill Generator**: Just type a word, and the AI will automatically fetch its IPA, definition, Vietnamese translation, context example, and synonyms.
 *   **🔐 Authentication & Database**: Built securely with Supabase Auth, Row Level Security (RLS) policies, and a PostgreSQL database.
 *   **🔥 Streak System**: Keep up the momentum with an automated daily learning streak tracker.
+*   **🎓 Dynamic Ecosystem**: Complete learning tools covering Roleplay conversations, Grammar practice, Reading comprehension, Dictation, and Quizzes with AI integrations tailored to your current Band level.
 
 ## 🛠️ Tech Stack
 
@@ -19,43 +20,3 @@ OpenQuiz AI is an open-source, modern vocabulary learning platform built with **
 *   **Styling**: Tailwind CSS + Custom CSS (Glassmorphism, 3D Transforms, Glows)
 *   **Icons**: Lucide React
 *   **Animations**: Framer Motion
-
-## ⚙️ Setup Instructions
-
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/cowdark123-blip/Open-Quiz-Languages.git
-    cd Open-Quiz-Languages
-    ```
-
-2.  **Install dependencies**
-    ```bash
-    npm install
-    ```
-
-3.  **Configure Environment Variables**
-    Create a `.env.local` file in the root directory and add the following keys:
-    ```env
-    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-    GROQ_API_KEY=your_groq_api_key
-    ```
-
-4.  **Set up Database (Supabase)**
-    Ensure you run the SQL script in `supabase/schema.sql` inside your Supabase project's SQL Editor to create the required tables and RLS policies.
-
-5.  **Run the development server**
-    ```bash
-    npm run dev
-    ```
-
-6.  **Open in Browser**
-    Navigate to `http://localhost:3000` to start exploring!
-
-## 🚢 Deployment (Vercel)
-
-The easiest way to deploy your Next.js app is to use the Vercel Platform. Since this repository is connected to GitHub, pushing to `main` will automatically trigger a new deployment.
-
-1. Create a Vercel project and link it to this repository.
-2. Add your `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `GROQ_API_KEY` into the Environment Variables settings in Vercel.
-3. Every push to the `main` branch will seamlessly build and deploy the app.
