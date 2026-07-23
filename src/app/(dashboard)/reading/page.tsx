@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { fetchUserVocabSets, fetchVocabItems } from '@/lib/supabase/data-service'
+import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { BookText, Loader2, Play, CheckCircle2, XCircle } from 'lucide-react'
 
@@ -11,6 +11,7 @@ export default function ReadingPage() {
   const [vocabItems, setVocabItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [targetBand, setTargetBand] = useState('co_ban')
   
   const [article, setArticle] = useState<string>('')
   const [questions, setQuestions] = useState<any[]>([])
@@ -25,7 +26,13 @@ export default function ReadingPage() {
 
   const loadSets = async () => {
     setLoading(true)
-    const userSets = await fetchUserVocabSets()
+    const [userSets, { profile }] = await Promise.all([
+      fetchUserVocabSets(),
+      getCurrentUserProfile()
+    ])
+    
+    if (profile?.target_band) setTargetBand(profile.target_band)
+    
     setSets(userSets)
     if (userSets.length > 0) {
       setSelectedSet(userSets[0].id)
@@ -56,7 +63,7 @@ export default function ReadingPage() {
       const res = await fetch('/api/ai/reading', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words })
+        body: JSON.stringify({ words, targetBand })
       })
 
       if (res.ok) {

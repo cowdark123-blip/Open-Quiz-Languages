@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Brain, LayoutDashboard, Layers, Sparkles, LogOut, BookOpen, Flame } from 'lucide-react'
+import { Brain, LayoutDashboard, Layers, Sparkles, LogOut, BookOpen, Flame, Settings } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
@@ -69,6 +69,7 @@ export default function DashboardLayout({
     { name: 'Bảng Điều Khiển', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Bộ Từ Vựng', href: '/sets', icon: Layers },
     { name: 'Bài Học SRS', href: '/srs', icon: BookOpen },
+    { name: 'Cài đặt', href: '/settings', icon: Settings },
   ]
 
   return (

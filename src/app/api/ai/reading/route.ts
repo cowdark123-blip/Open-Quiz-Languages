@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { words } = await req.json()
+    const { words, targetBand } = await req.json()
 
     if (!words || words.length === 0) {
       return NextResponse.json({ error: 'Missing words' }, { status: 400 })
@@ -13,12 +13,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'GROQ_API_KEY is not configured' }, { status: 500 })
     }
 
+    let difficultyInstruction = ''
+    switch (targetBand) {
+      case 'mat_goc':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A0-A1): Write very simple and short sentences. Use basic grammar. Explanations MUST be 100% in Vietnamese.'
+        break
+      case 'co_ban':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A2-B1): Write simple compound sentences. Explanations should be easy to understand in Vietnamese.'
+        break
+      case 'trung_cap':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (B2): Use academic vocabulary, collocations. Explanations can mix English and Vietnamese.'
+        break
+      case 'nang_cao':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (C1-C2): Use advanced vocabulary, idioms, complex passive and inverted structures. Explanations MUST be 100% in Native English.'
+        break
+      default:
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A2-B1): Write simple compound sentences.'
+    }
+
     const systemPrompt = `You are an expert English teacher.
 The user wants to practice reading comprehension based on a specific set of vocabulary words.
 Words to include: ${words.join(', ')}
 
 Please write a short, engaging article (150-250 words) that naturally includes all of these words.
 Then, create 3 multiple choice reading comprehension questions based on the article.
+${difficultyInstruction}
 
 You MUST respond in strict JSON format exactly like this:
 {

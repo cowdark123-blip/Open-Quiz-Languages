@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PenTool, CheckCircle2, XCircle, Loader2, Play, Sparkles } from 'lucide-react'
+import { getCurrentUserProfile } from '@/lib/supabase/data-service'
 
 const TOPICS = [
   'Các thì trong tiếng Anh (Tenses)',
@@ -26,6 +27,15 @@ export default function GrammarPage() {
   const [practiceQuestions, setPracticeQuestions] = useState<any[]>([])
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  const [targetBand, setTargetBand] = useState('co_ban')
+
+  useEffect(() => {
+    async function fetchBand() {
+      const { profile } = await getCurrentUserProfile()
+      if (profile?.target_band) setTargetBand(profile.target_band)
+    }
+    fetchBand()
+  }, [])
 
   const handleCheckGrammar = async () => {
     if (!textToCheck.trim()) return
@@ -36,7 +46,7 @@ export default function GrammarPage() {
       const res = await fetch('/api/ai/grammar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'check', text: textToCheck })
+        body: JSON.stringify({ action: 'check', text: textToCheck, targetBand })
       })
 
       if (res.ok) {
@@ -63,7 +73,7 @@ export default function GrammarPage() {
       const res = await fetch('/api/ai/grammar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'practice', topic: selectedTopic })
+        body: JSON.stringify({ action: 'practice', topic: selectedTopic, targetBand })
       })
 
       if (res.ok) {

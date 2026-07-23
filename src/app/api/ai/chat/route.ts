@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { scenario, messages } = await req.json()
+    const { scenario, messages, targetBand } = await req.json()
 
     if (!scenario || !messages) {
       return NextResponse.json({ error: 'Missing scenario or messages' }, { status: 400 })
@@ -13,6 +13,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'GROQ_API_KEY is not configured' }, { status: 500 })
     }
 
+    let difficultyInstruction = ''
+    switch (targetBand) {
+      case 'mat_goc':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A0-A1): Use ultra-basic vocabulary (A1 level). Keep sentences very short and simple. Explain corrections and suggestions 80% in extremely friendly Vietnamese.'
+        break
+      case 'co_ban':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A2-B1): Use common vocabulary and simple compound sentences. Explain corrections 50% in English, 50% in Vietnamese.'
+        break
+      case 'trung_cap':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (B2): Use academic vocabulary, collocations, and phrasal verbs. Use complex sentence structures. Explain corrections primarily in English.'
+        break
+      case 'nang_cao':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (C1-C2): Use advanced vocabulary, idioms, and academic jargon. Use complex passive and inverted structures. Respond and explain 100% in Native English, do not use Vietnamese.'
+        break
+      default:
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A2-B1): Use common vocabulary and simple compound sentences.'
+    }
+
     const systemPrompt = `You are an AI English tutor playing a roleplay game.
 Scenario: ${scenario}
 
@@ -21,6 +39,7 @@ Keep your responses relatively short, conversational, and natural. Do not break 
 Additionally, as an English tutor, you must analyze the user's LAST message.
 If they made grammatical errors, provide a brief correction in Vietnamese.
 If their sentence is grammatically correct but could sound more native/natural, provide a suggestion.
+${difficultyInstruction}
 
 You MUST respond in strict JSON format:
 {

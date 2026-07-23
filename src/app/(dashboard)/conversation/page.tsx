@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Mic, Send, Bot, User, Loader2, Sparkles, Volume2 } from 'lucide-react'
+import { getCurrentUserProfile } from '@/lib/supabase/data-service'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -24,8 +25,17 @@ export default function ConversationPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [targetBand, setTargetBand] = useState('co_ban')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
+
+  useEffect(() => {
+    async function fetchBand() {
+      const { profile } = await getCurrentUserProfile()
+      if (profile?.target_band) setTargetBand(profile.target_band)
+    }
+    fetchBand()
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -102,7 +112,7 @@ export default function ConversationPage() {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario, messages: contextMessages })
+        body: JSON.stringify({ scenario, messages: contextMessages, targetBand })
       })
 
       if (res.ok) {

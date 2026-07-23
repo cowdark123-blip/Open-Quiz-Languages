@@ -11,6 +11,7 @@ export interface Profile {
   display_name: string
   avatar_url?: string | null
   streak_count: number
+  target_band?: string
   last_active_date?: string | null
   created_at: string
 }

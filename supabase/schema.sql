@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   display_name TEXT NOT NULL DEFAULT 'Học viên OpenQuiz',
   avatar_url TEXT,
   streak_count INT DEFAULT 1,
+  target_band TEXT DEFAULT 'co_ban',
   last_active_date DATE DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

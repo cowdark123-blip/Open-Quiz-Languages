@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { fetchUserVocabSets, fetchVocabItems } from '@/lib/supabase/data-service'
+import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw } from 'lucide-react'
 
@@ -15,6 +15,7 @@ export default function DictationPage() {
   const [input, setInput] = useState('')
   const [checked, setChecked] = useState(false)
   const [diffResult, setDiffResult] = useState<{ word: string, status: 'correct' | 'wrong' | 'missing' }[]>([])
+  const [targetBand, setTargetBand] = useState('co_ban')
 
   useEffect(() => {
     loadSets()
@@ -22,7 +23,13 @@ export default function DictationPage() {
 
   const loadSets = async () => {
     setLoading(true)
-    const userSets = await fetchUserVocabSets()
+    const [userSets, { profile }] = await Promise.all([
+      fetchUserVocabSets(),
+      getCurrentUserProfile()
+    ])
+    
+    if (profile?.target_band) setTargetBand(profile.target_band)
+
     setSets(userSets)
     if (userSets.length > 0) {
       setSelectedSet(userSets[0].id)
@@ -48,13 +55,20 @@ export default function DictationPage() {
     loadItems(setId)
   }
 
-  const playAudio = (rate: number = 1.0) => {
+  const playAudio = (isSlow: boolean = false) => {
     const sentence = items[currentIndex]?.example_sentence
     if (!sentence) return
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel()
       const utterance = new SpeechSynthesisUtterance(sentence)
       utterance.lang = 'en-US'
+      
+      let rate = 1.0
+      if (targetBand === 'mat_goc') rate = 0.85
+      else if (targetBand === 'nang_cao') rate = 1.1
+      
+      if (isSlow) rate = rate * 0.75
+
       utterance.rate = rate
       window.speechSynthesis.speak(utterance)
     }
@@ -149,14 +163,14 @@ export default function DictationPage() {
 
           <div className="flex justify-center gap-4 py-4">
             <button 
-              onClick={() => playAudio(1.0)}
+              onClick={() => playAudio(false)}
               className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-600 to-orange-500 hover:scale-105 transition-transform flex items-center justify-center shadow-lg shadow-amber-500/20"
             >
               <Volume2 className="w-8 h-8 text-white" />
             </button>
             <button 
-              onClick={() => playAudio(0.75)}
-              title="Phát chậm (0.75x)"
+              onClick={() => playAudio(true)}
+              title="Phát chậm"
               className="w-16 h-16 rounded-full glass-card hover:bg-slate-800 transition-transform flex items-center justify-center border border-slate-700"
             >
               <FastForward className="w-6 h-6 text-amber-400" />

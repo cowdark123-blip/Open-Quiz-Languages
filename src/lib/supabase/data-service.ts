@@ -22,6 +22,19 @@ export async function getCurrentUserProfile(): Promise<{ user: any; profile: Pro
   }
 }
 
+export async function updateUserProfile(updates: Partial<Profile>): Promise<boolean> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+
+    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id)
+    return !error
+  } catch {
+    return false
+  }
+}
+
 export async function updateUserStreak(userId?: string): Promise<number> {
   const supabase = createClient()
   try {

@@ -2,11 +2,29 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { action, text, topic } = await req.json()
+    const { action, text, topic, targetBand } = await req.json()
 
     const GROQ_API_KEY = process.env.GROQ_API_KEY
     if (!GROQ_API_KEY) {
       return NextResponse.json({ error: 'GROQ_API_KEY is not configured' }, { status: 500 })
+    }
+
+    let difficultyInstruction = ''
+    switch (targetBand) {
+      case 'mat_goc':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A0-A1): Explain grammar concepts using very basic terms. Explanations MUST be 80-100% in Vietnamese, highly detailed and friendly. Sentences must be extremely short.'
+        break
+      case 'co_ban':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A2-B1): Explain grammar concepts using 50% English and 50% Vietnamese. Sentences should be basic compound sentences.'
+        break
+      case 'trung_cap':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (B2): Explain grammar mostly in English with Vietnamese only for complex terms. Focus on B2 grammar rules (conditionals, relative clauses).'
+        break
+      case 'nang_cao':
+        difficultyInstruction = '\nDIFFICULTY LEVEL (C1-C2): Explain grammar 100% in Native English without Vietnamese. Focus on idioms, inversions, and advanced collocations.'
+        break
+      default:
+        difficultyInstruction = '\nDIFFICULTY LEVEL (A2-B1): Use common vocabulary and simple explanations.'
     }
 
     let systemPrompt = ''
@@ -28,7 +46,8 @@ If there ARE errors, fix them and respond exactly with:
   "hasError": true,
   "correctedText": "The fully corrected English text",
   "explanation": "Detailed explanation in Vietnamese of what was wrong and why you fixed it"
-}`
+}
+${difficultyInstruction}`
     } else if (action === 'practice') {
       if (!topic) return NextResponse.json({ error: 'Missing topic' }, { status: 400 })
       systemPrompt = `You are an English teacher generating practice exercises.
@@ -45,7 +64,8 @@ Respond in strict JSON format:
       "explanation": "Brief explanation in Vietnamese of the grammar rule"
     }
   ]
-}`
+}
+${difficultyInstruction}`
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
