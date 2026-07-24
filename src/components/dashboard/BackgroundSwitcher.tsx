@@ -167,10 +167,12 @@ export function BackgroundSwitcher({ isOpen, onClose }: BackgroundSwitcherProps)
                           <img
                             src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
                             alt={item.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
-                              // Fallback if maxresdefault doesn't exist
-                              (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                              const target = e.target as HTMLImageElement;
+                              if (!target.src.includes('hqdefault.jpg')) {
+                                target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                              }
                             }}
                           />
                           {/* Play Icon Overlay */}

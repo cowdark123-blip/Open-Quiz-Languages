@@ -25,7 +25,7 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1.5, ease: 'easeInOut' }}
-            className="fixed inset-0 -z-30 pointer-events-none overflow-hidden bg-black"
+            className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-black"
           >
             <iframe
               src={`https://www.youtube.com/embed/${theme.split(':')[1]}?autoplay=1&mute=1&loop=1&controls=0&playlist=${theme.split(':')[1]}&rel=0&showinfo=0`}
@@ -42,7 +42,7 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1.5, ease: 'easeInOut' }}
-            className="fixed inset-0 -z-30 pointer-events-none bg-black"
+            className="fixed inset-0 z-0 pointer-events-none bg-black"
           >
             <img
               src={theme.substring(6)}
@@ -58,7 +58,7 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1.5, ease: 'easeInOut' }}
-            className={`fixed inset-0 -z-20 pointer-events-none ${
+            className={`fixed inset-0 z-0 pointer-events-none ${
               themeBgClasses[theme as BackgroundTheme] || 'bg-gradient-cosmic'
             }`}
           >
@@ -143,7 +143,7 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       {/* Content wrapper */}
-      <div className="relative z-0 min-h-screen w-full">{children}</div>
+      <div className="relative z-10 min-h-screen w-full">{children}</div>
     </div>
   )
 }
