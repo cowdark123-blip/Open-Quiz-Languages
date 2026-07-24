@@ -1,46 +1,86 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBackground, BackgroundTheme, ThemeOption } from '@/contexts/BackgroundContext'
-import { Sparkles, Layers, Palette, Moon, Check, X, Info } from 'lucide-react'
+import { Image as ImageIcon, Link as LinkIcon, MonitorPlay, PlaySquare, X, Check, Info } from 'lucide-react'
 
 interface BackgroundSwitcherProps {
   isOpen: boolean
   onClose: () => void
 }
 
-const themeIcons: Record<BackgroundTheme, React.ReactNode> = {
-  cosmic: <Sparkles className="w-5 h-5 text-purple-400" />,
-  glass: <Layers className="w-5 h-5 text-cyan-400" />,
-  gradient: <Palette className="w-5 h-5 text-pink-400" />,
-  ambient: <Moon className="w-5 h-5 text-emerald-400" />,
-}
-
-const themePreviewGradients: Record<BackgroundTheme, string> = {
-  cosmic: 'from-purple-900/80 via-indigo-950 to-pink-900/60',
-  glass: 'from-cyan-900/80 via-slate-900 to-blue-900/60',
-  gradient: 'from-pink-900/80 via-purple-950 to-amber-900/60',
-  ambient: 'from-emerald-950 via-slate-950 to-teal-900/60',
-}
+const PRESET_CATEGORIES = [
+  {
+    category: 'Study with me',
+    items: [
+      { id: 'youtube:-R22M-x9E60', title: 'Study with me 1' },
+      { id: 'youtube:aW9yY-B3Lfc', title: 'Study with me 2' },
+      { id: 'youtube:lTRiuFIWV54', title: 'Study with me 3' },
+      { id: 'youtube:7X0N70W-rT4', title: 'Study with me 4' },
+    ],
+  },
+  {
+    category: '4K Live Wallpaper 1 hour',
+    items: [
+      { id: 'youtube:qRTVg8HHzUo', title: 'Wallpaper 1' },
+      { id: 'youtube:XqZsoesa55w', title: 'Wallpaper 2' },
+      { id: 'youtube:9r8d_7G9UQA', title: 'Wallpaper 3' },
+      { id: 'youtube:Lp-Y7X-r1o8', title: 'Wallpaper 4' },
+    ],
+  },
+  {
+    category: '4K Anime Wallpaper 1 hour',
+    items: [
+      { id: 'youtube:7NosQC8vT3s', title: 'Anime 1' },
+      { id: 'youtube:Zz_Z7p-1_X4', title: 'Anime 2' },
+      { id: 'youtube:r6-E8i9mRFI', title: 'Anime 3' },
+      { id: 'youtube:68c_VpP3-sQ', title: 'Anime 4' },
+    ],
+  },
+]
 
 export function BackgroundSwitcher({ isOpen, onClose }: BackgroundSwitcherProps) {
   const { theme, setTheme, themeList } = useBackground()
-  const [feedbackTheme, setFeedbackTheme] = useState<string | null>(null)
+  
+  const [localTheme, setLocalTheme] = useState<BackgroundTheme>(theme)
+  const [customLink, setCustomLink] = useState('')
 
-  const handleSelectTheme = (selectedId: BackgroundTheme) => {
-    setTheme(selectedId)
-    const selectedOption = themeList.find((t) => t.id === selectedId)
-    setFeedbackTheme(selectedOption?.label || selectedId)
-    setTimeout(() => {
-      setFeedbackTheme(null)
-    }, 2000)
+  useEffect(() => {
+    if (isOpen) {
+      setLocalTheme(theme)
+      if (theme.startsWith('youtube:') || theme.startsWith('image:')) {
+        const value = theme.substring(theme.indexOf(':') + 1)
+        setCustomLink(theme.startsWith('youtube:') ? `https://youtube.com/watch?v=${value}` : value)
+      } else {
+        setCustomLink('')
+      }
+    }
+  }, [isOpen, theme])
+
+  const handleLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setCustomLink(val)
+    
+    // Auto-detect YouTube
+    const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+    const match = val.match(ytRegex)
+    if (match && match[1]) {
+      setLocalTheme(`youtube:${match[1]}`)
+    } else if (val.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+      setLocalTheme(`image:${val}`)
+    }
+  }
+
+  const handleApply = () => {
+    setTheme(localTheme)
+    onClose()
   }
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
           {/* Backdrop click */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -56,23 +96,14 @@ export function BackgroundSwitcher({ isOpen, onClose }: BackgroundSwitcherProps)
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="relative z-10 w-full max-w-xl glass-panel p-6 rounded-3xl border border-slate-700/60 shadow-2xl space-y-6"
+            className="relative z-10 w-full max-w-4xl max-h-[90vh] flex flex-col bg-[#111827] rounded-2xl border border-slate-700/60 shadow-2xl overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-400">
-                  <Palette className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    Tùy Chỉnh Nền Giao Diện
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Chọn không gian không khí học tập phù hợp với tâm trạng của bạn
-                  </p>
-                </div>
-              </div>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-slate-300" />
+                Đổi hình nền
+              </h3>
               <button
                 onClick={onClose}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all"
@@ -82,91 +113,129 @@ export function BackgroundSwitcher({ isOpen, onClose }: BackgroundSwitcherProps)
               </button>
             </div>
 
-            {/* Notification Feedback Toast */}
-            {feedbackTheme && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" />
-                  Đã chuyển giao diện sang: <strong className="text-white">{feedbackTheme}</strong>
-                </span>
-                <span className="text-[10px] text-emerald-400/80">Tự động lưu</span>
-              </motion.div>
-            )}
+            {/* Scrollable Content */}
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-8">
+              
+              {/* Custom Link Section */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-white">Link ảnh / GIF / YouTube</h4>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LinkIcon className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <input
+                    type="text"
+                    value={customLink}
+                    onChange={handleLinkChange}
+                    className="block w-full pl-10 pr-3 py-3 border border-slate-700 rounded-xl bg-slate-800/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    placeholder="Dán link ảnh, GIF hoặc YouTube vào đây..."
+                  />
+                </div>
+                <p className="text-xs text-slate-400">
+                  Hỗ trợ link ảnh trực tiếp (.jpg, .png, .gif) hoặc link video YouTube
+                </p>
+              </div>
 
-            {/* Theme Options Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {themeList.map((item: ThemeOption) => {
-                const isActive = theme === item.id
-                return (
-                  <motion.button
-                    key={item.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleSelectTheme(item.id)}
-                    className={`relative p-4 rounded-2xl border text-left transition-all overflow-hidden flex flex-col justify-between h-36 ${
-                      isActive
-                        ? 'border-purple-500 bg-slate-900/90 shadow-xl shadow-purple-500/20 ring-2 ring-purple-500/50'
-                        : 'border-slate-800 bg-slate-900/40 hover:border-slate-600 hover:bg-slate-900/70'
-                    }`}
-                  >
-                    {/* Live Gradient Preview Background Overlay */}
-                    <div
-                      className={`absolute inset-0 bg-gradient-to-br ${themePreviewGradients[item.id]} opacity-20 pointer-events-none transition-opacity duration-300 ${
-                        isActive ? 'opacity-40' : ''
-                      }`}
-                    />
+              <div className="flex items-center justify-center">
+                <div className="w-1/3 h-px bg-slate-800"></div>
+                <span className="px-4 text-xs text-slate-500">Hoặc có thể chọn</span>
+                <div className="w-1/3 h-px bg-slate-800"></div>
+              </div>
 
-                    {/* Top Row: Icon & Active Pill */}
-                    <div className="flex items-center justify-between z-10">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-xl bg-slate-950/60 border border-slate-800">
-                          {themeIcons[item.id]}
+              {/* YouTube Presets */}
+              {PRESET_CATEGORIES.map((cat, idx) => (
+                <div key={idx} className="space-y-3">
+                  <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                    {cat.category}
+                    <MonitorPlay className="w-4 h-4 text-red-500" />
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {cat.items.map((item) => {
+                      const isActive = localTheme === item.id
+                      const videoId = item.id.split(':')[1]
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setLocalTheme(item.id)
+                            setCustomLink(`https://youtube.com/watch?v=${videoId}`)
+                          }}
+                          className={`relative aspect-video rounded-xl overflow-hidden border-2 transition-all hover:scale-105 ${
+                            isActive ? 'border-purple-500 ring-4 ring-purple-500/20' : 'border-transparent hover:border-slate-600'
+                          }`}
+                        >
+                          <img
+                            src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback if maxresdefault doesn't exist
+                              (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                            }}
+                          />
+                          {/* Play Icon Overlay */}
+                          <div className="absolute inset-0 bg-black/20 flex items-end justify-end p-2">
+                            <PlaySquare className="w-5 h-5 text-white/80" />
+                          </div>
+                          {isActive && (
+                            <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
+                              <Check className="w-8 h-8 text-white drop-shadow-md" />
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {/* Default Themes */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-white">Giao diện hệ thống</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {themeList.map((item) => {
+                    const isActive = localTheme === item.id
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setLocalTheme(item.id)
+                          setCustomLink('')
+                        }}
+                        className={`relative p-3 rounded-xl border text-left transition-all h-20 flex flex-col justify-between ${
+                          isActive
+                            ? 'border-purple-500 bg-slate-900 shadow-lg shadow-purple-500/20'
+                            : 'border-slate-800 bg-slate-800/50 hover:bg-slate-700/50'
+                        }`}
+                      >
+                        <span className="text-xs font-bold text-white block">{item.label}</span>
+                        <div className="flex gap-1">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.colors.primary }} />
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.colors.secondary }} />
                         </div>
-                        <span className="text-sm font-bold text-white">{item.label}</span>
-                      </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-                      {isActive && (
-                        <span className="px-2.5 py-1 rounded-full bg-purple-500 text-white text-[10px] font-extrabold flex items-center gap-1 shadow-md">
-                          <Check className="w-3 h-3" />
-                          Đang chọn
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Description */}
-                    <p className="text-xs text-slate-300 z-10 leading-relaxed line-clamp-2 mt-2">
-                      {item.description}
-                    </p>
-
-                    {/* Color Swatch Dots */}
-                    <div className="flex items-center gap-1.5 z-10 mt-auto pt-2">
-                      <span
-                        className="w-3 h-3 rounded-full border border-white/20 shadow-sm"
-                        style={{ backgroundColor: item.colors.primary }}
-                      />
-                      <span
-                        className="w-3 h-3 rounded-full border border-white/20 shadow-sm"
-                        style={{ backgroundColor: item.colors.secondary }}
-                      />
-                      <span
-                        className="w-3 h-3 rounded-full border border-white/20 shadow-sm"
-                        style={{ backgroundColor: item.colors.accent }}
-                      />
-                    </div>
-                  </motion.button>
-                )
-              })}
             </div>
 
-            {/* Footer Tip */}
-            <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">
-              <Info className="w-4 h-4 text-purple-400 shrink-0" />
-              <span>Giao diện được tự động đồng bộ và lưu vào trình duyệt của bạn.</span>
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-800 flex justify-end gap-3 bg-slate-900/50">
+              <button
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-xl text-sm font-medium text-white hover:bg-slate-800 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleApply}
+                className="px-5 py-2.5 rounded-xl text-sm font-medium bg-slate-200 text-slate-900 hover:bg-white transition-colors flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                Áp dụng
+              </button>
             </div>
           </motion.div>
         </div>

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
-export type BackgroundTheme = 'cosmic' | 'glass' | 'gradient' | 'ambient'
+export type BackgroundTheme = string // e.g. 'cosmic', 'youtube:dQw4w9WgXcQ', 'image:https://...'
 
 export interface ThemeOption {
   id: BackgroundTheme
@@ -85,8 +85,8 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     setMounted(true)
     try {
-      const savedTheme = localStorage.getItem(STORAGE_KEY) as BackgroundTheme | null
-      if (savedTheme && ['cosmic', 'glass', 'gradient', 'ambient'].includes(savedTheme)) {
+      const savedTheme = localStorage.getItem(STORAGE_KEY)
+      if (savedTheme) {
         setThemeState(savedTheme)
       }
     } catch {
