@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Sparkles, Brain, Mic, Flame, ArrowRight, Volume2, CalendarClock } from 'lucide-react'
+import { Sparkles, Brain, Mic, Flame, ArrowRight, Volume2, CalendarClock, X, Loader2 } from 'lucide-react'
+import { playTTS } from '@/lib/tts'
 
 function OAuthCallbackHandler() {
   const router = useRouter()
@@ -44,15 +45,12 @@ export default function LandingPage() {
     })
   }, [])
 
-  const playAudio = (text: string, e?: React.MouseEvent) => {
+  const [isPlayingDemo, setIsPlayingDemo] = useState(false)
+  const playAudio = async (text: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-US'
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
+    setIsPlayingDemo(true)
+    await playTTS(text)
+    setIsPlayingDemo(false)
   }
 
   return (
@@ -234,9 +232,10 @@ export default function LandingPage() {
                       <p className="text-slate-400 text-sm italic font-mono">/ˈæt.mə.sfɪər/</p>
                       <button 
                         onClick={(e) => playAudio('Atmosphere', e)}
-                        className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-slate-300 hover:text-white"
+                        disabled={isPlayingDemo}
+                        className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-slate-300 hover:text-white disabled:opacity-50"
                       >
-                        <Volume2 className="w-4 h-4 text-purple-400" />
+                        {isPlayingDemo ? <Loader2 className="w-4 h-4 text-purple-400 animate-spin" /> : <Volume2 className="w-4 h-4 text-purple-400" />}
                         <span>Phát âm chuẩn</span>
                       </button>
                       <p className="text-xs text-slate-500 pt-2">(Nhấp chuột để lật thẻ)</p>
@@ -397,8 +396,14 @@ export default function LandingPage() {
             </div>
 
             {srsMessage && (
-              <div className="mt-8 px-6 py-3 rounded-full bg-cyan-950/50 border border-cyan-800 text-cyan-300 font-medium animate-in fade-in slide-in-from-bottom-4">
-                {srsMessage}
+              <div className="mt-8 px-6 py-3 rounded-full bg-cyan-950/50 border border-cyan-800 text-cyan-300 font-medium animate-in fade-in slide-in-from-bottom-4 flex items-center justify-between gap-4">
+                <span>{srsMessage}</span>
+                <button 
+                  onClick={() => setSrsMessage(null)}
+                  className="p-1 hover:bg-cyan-900/50 rounded-full transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             )}
           </div>

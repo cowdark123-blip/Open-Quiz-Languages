@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { VocabItem } from '@/types/database'
 import { CheckSquare, Square } from 'lucide-react'
+import { useVocab } from '@/contexts/VocabContext'
 
 interface WordSelectorProps {
   items: VocabItem[]
@@ -10,6 +11,7 @@ interface WordSelectorProps {
 }
 
 export default function WordSelector({ items, selectedIds, onChange, disabled }: WordSelectorProps) {
+  const { vocabSets } = useVocab()
   const handleToggleAll = () => {
     if (selectedIds.length === items.length) {
       onChange([])
@@ -26,6 +28,15 @@ export default function WordSelector({ items, selectedIds, onChange, disabled }:
     }
   }
 
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, VocabItem[]> = {}
+    items.forEach(item => {
+      if (!groups[item.set_id]) groups[item.set_id] = []
+      groups[item.set_id].push(item)
+    })
+    return groups
+  }, [items])
+
   if (items.length === 0) return null
 
   return (
@@ -41,26 +52,46 @@ export default function WordSelector({ items, selectedIds, onChange, disabled }:
           {selectedIds.length === items.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
         </button>
       </div>
-      <div className="max-h-48 overflow-y-auto bg-slate-900/50 border border-slate-700 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {items.map(item => {
-          const isSelected = selectedIds.includes(item.id)
+      <div className="max-h-72 overflow-y-auto bg-slate-900/50 border border-slate-700 rounded-xl p-4 space-y-6">
+        {Object.entries(groupedItems).map(([setId, groupItems]) => {
+          const setInfo = vocabSets.find(s => s.id === setId)
+          const setTitle = setInfo?.title || 'Từ vựng đã chọn'
+          
           return (
-            <label
-              key={item.id}
-              className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
-                isSelected ? 'bg-purple-600/20 border-purple-500/50 text-purple-200' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800'
-              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <input
-                type="checkbox"
-                checked={isSelected}
-                disabled={disabled}
-                onChange={() => handleToggle(item.id)}
-                className="hidden"
-              />
-              {isSelected ? <CheckSquare className="w-4 h-4 text-purple-400 shrink-0" /> : <Square className="w-4 h-4 text-slate-500 shrink-0" />}
-              <span className="text-sm truncate font-medium">{item.term}</span>
-            </label>
+            <div key={setId} className="space-y-3">
+              <h4 className="text-sm font-bold text-slate-400 border-b border-slate-800 pb-1 flex items-center justify-between">
+                <span>{setTitle}</span>
+                <span className="text-[10px] font-normal bg-slate-800 px-2 py-0.5 rounded-full">{groupItems.length} từ</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {groupItems.map(item => {
+                  const isSelected = selectedIds.includes(item.id)
+                  return (
+                    <label
+                      key={item.id}
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                        isSelected ? 'bg-purple-600/20 border-purple-500/50 text-purple-200' : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:bg-slate-800/80'
+                      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <div className="mt-0.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={disabled}
+                          onChange={() => handleToggle(item.id)}
+                          className="hidden"
+                        />
+                        {isSelected ? <CheckSquare className="w-5 h-5 text-purple-400 shrink-0" /> : <Square className="w-5 h-5 text-slate-500 shrink-0" />}
+                      </div>
+                      <div className="flex flex-col flex-1 overflow-hidden">
+                        <span className="text-sm font-bold text-slate-200 truncate">{item.term}</span>
+                        <span className="text-xs text-slate-500 truncate mt-0.5">{item.vietnamese_translation || item.definition}</span>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
           )
         })}
       </div>
