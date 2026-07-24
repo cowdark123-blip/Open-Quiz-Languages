@@ -482,14 +482,36 @@ export async function saveConversationHistory(scenario: string, messages: any[])
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return false
 
-    const { error } = await supabase.from('conversation_histories').upsert({
+    const payload = {
       user_id: user.id,
       scenario,
       messages,
       updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id,scenario' })
-    return !error
-  } catch {
+    }
+
+    const { data: existing } = await supabase
+      .from('conversation_histories')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('scenario', scenario)
+      .single()
+
+    let error;
+    if (existing) {
+      const { error: updateErr } = await supabase.from('conversation_histories').update(payload).eq('id', existing.id)
+      error = updateErr
+    } else {
+      const { error: insertErr } = await supabase.from('conversation_histories').insert([payload])
+      error = insertErr
+    }
+
+    if (error) {
+      console.error('saveConversationHistory error:', error)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('saveConversationHistory exception:', err)
     return false
   }
 }
@@ -533,15 +555,38 @@ export async function saveActiveSession(moduleType: string, resourceId: string, 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return false
 
-    const { error } = await supabase.from('active_learning_sessions').upsert({
+    const payload = {
       user_id: user.id,
       module_type: moduleType,
       resource_id: resourceId,
       session_data: sessionData,
       updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id,module_type,resource_id' })
-    return !error
-  } catch {
+    }
+
+    const { data: existing } = await supabase
+      .from('active_learning_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('module_type', moduleType)
+      .eq('resource_id', resourceId)
+      .single()
+
+    let error;
+    if (existing) {
+      const { error: updateErr } = await supabase.from('active_learning_sessions').update(payload).eq('id', existing.id)
+      error = updateErr
+    } else {
+      const { error: insertErr } = await supabase.from('active_learning_sessions').insert([payload])
+      error = insertErr
+    }
+
+    if (error) {
+      console.error('saveActiveSession error:', error)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('saveActiveSession exception:', err)
     return false
   }
 }
