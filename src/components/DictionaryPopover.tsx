@@ -23,8 +23,32 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [isAudioPlaying, setIsAudioPlaying] = useState(false)
+  
+  const [dictData, setDictData] = useState<any>(null)
+  const [loadingDict, setLoadingDict] = useState(true)
 
   const isAlreadySaved = isWordSaved(word)
+
+  useEffect(() => {
+    const fetchDict = async () => {
+      try {
+        const res = await fetch('/api/ai/dictionary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word, contextSentence })
+        })
+        const json = await res.json()
+        if (json.success && json.data) {
+          setDictData(json.data)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoadingDict(false)
+      }
+    }
+    fetchDict()
+  }, [word, contextSentence])
 
   useEffect(() => {
     if (vocabSets.length > 0 && !selectedSetId) {
@@ -103,9 +127,21 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
               </div>
             </div>
 
-            <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800/50">
-              <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ví dụ ngữ cảnh</span>
-              <p className="text-xs text-slate-300 italic">"{contextSentence}"</p>
+            <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800/50 space-y-2">
+              <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ví dụ ngữ cảnh AI</span>
+              {loadingDict ? (
+                <div className="flex items-center gap-2 text-slate-400 text-xs">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Đang tạo ngữ cảnh...
+                </div>
+              ) : dictData ? (
+                <>
+                  <p className="text-xs text-slate-300 italic">"{dictData.exampleSentence}"</p>
+                  <p className="text-[11px] text-emerald-400 font-medium">{dictData.exampleTranslation}</p>
+                  {dictData.exampleIpa && <p className="text-[10px] text-purple-300 font-mono">/{dictData.exampleIpa}/</p>}
+                </>
+              ) : (
+                <p className="text-xs text-slate-300 italic">"{contextSentence}"</p>
+              )}
             </div>
 
             {isAlreadySaved ? (
@@ -195,7 +231,7 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
                   Cambridge 📘
                 </a>
                 <a 
-                  href={`http://tracuu.soha.vn/dict/en_vn/${encodeURIComponent((word).toLowerCase())}`}
+                  href={`http://tratu.soha.vn/dict/en_vn/${encodeURIComponent((word).toLowerCase())}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 py-1.5 border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"

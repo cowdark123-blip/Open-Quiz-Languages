@@ -22,6 +22,7 @@ export default function SpeakingPage() {
   
   // Recording states
   const [isRecording, setIsRecording] = useState(false)
+  const [hasRecorded, setHasRecorded] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [finalScore, setFinalScore] = useState<any>(null)
   const [evaluating, setEvaluating] = useState(false)
@@ -109,6 +110,7 @@ export default function SpeakingPage() {
 
       drawWaveform()
       setIsRecording(true)
+      setHasRecorded(true)
       setTranscript('')
 
       // Speech Recognition
@@ -327,12 +329,12 @@ export default function SpeakingPage() {
             </div>
           </div>
 
-          {(transcript || finalScore) && (
+          {(hasRecorded) && (
             <div className="space-y-4">
               <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700 min-h-24">
                 <p className="text-slate-300">
                   <span className="font-semibold text-sky-400">Bạn vừa nói: </span>
-                  {transcript || '...'}
+                  {transcript || (isRecording ? 'Đang nghe...' : 'Không nhận diện được giọng nói.')}
                 </p>
               </div>
 
@@ -344,6 +346,12 @@ export default function SpeakingPage() {
                 >
                   {evaluating ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Chấm điểm'}
                 </button>
+              )}
+              
+              {!isRecording && !transcript && !finalScore && (
+                <div className="text-center text-sm text-slate-400 py-2">
+                  Vui lòng thử thu âm lại hoặc nói rõ hơn.
+                </div>
               )}
 
               {finalScore && (

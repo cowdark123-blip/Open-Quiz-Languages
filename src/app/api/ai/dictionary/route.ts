@@ -31,14 +31,18 @@ export async function POST(req: Request) {
       The user wants to look up the word: "${word}".
       The sentence context is: "${contextSentence || 'N/A'}"
 
-      Please provide the dictionary information for this word, considering its context if provided.
+      Please provide the dictionary information for this word.
+      CRITICAL INSTRUCTION: You MUST generate a NEW, short and practical example sentence using the word, and provide its Vietnamese translation and IPA (for the word itself, or the sentence).
+      
       Return the result as a strict JSON object with these exact keys:
       {
         "term": "the base form of the word (e.g., if input is 'running', return 'run')",
         "ipa": "IPA pronunciation of the term",
-        "definition": "English definition of the term, appropriate for the context",
-        "vietnameseTranslation": "Vietnamese translation, appropriate for the context",
-        "exampleSentence": "A good example sentence using the term, or return the provided context sentence if it is good."
+        "definition": "English definition of the term",
+        "vietnameseTranslation": "Vietnamese translation",
+        "exampleSentence": "A newly generated, simple example sentence using the term.",
+        "exampleTranslation": "Vietnamese translation of the example sentence",
+        "exampleIpa": "IPA pronunciation of the term"
       }
     `
 
