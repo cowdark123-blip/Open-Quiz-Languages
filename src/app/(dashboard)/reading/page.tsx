@@ -19,6 +19,7 @@ export default function ReadingPage() {
   const [questions, setQuestions] = useState<any[]>([])
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  const [pendingSession, setPendingSession] = useState<any>(null)
 
   const [activeWord, setActiveWord] = useState<VocabItem | null>(null)
 
@@ -48,11 +49,9 @@ export default function ReadingPage() {
       setLoading(true)
       const sessionData = await loadActiveSession('reading', selectedSet)
       if (sessionData && sessionData.article) {
-        setArticle(sessionData.article)
-        setQuestions(sessionData.questions || [])
-        setAnswers(sessionData.answers || {})
-        setSubmitted(sessionData.submitted || false)
+        setPendingSession(sessionData)
       } else {
+        setPendingSession(null)
         setArticle('')
         setQuestions([])
         setAnswers({})
@@ -67,6 +66,7 @@ export default function ReadingPage() {
 
   const handleGenerate = async () => {
     if (!selectedSet) return
+    setPendingSession(null)
     setGenerating(true)
     setArticle('')
     setQuestions([])
@@ -208,7 +208,32 @@ export default function ReadingPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          {article && (
+          {pendingSession ? (
+            <div className="glass-panel p-8 rounded-3xl border border-cyan-500/30 text-center space-y-4 animate-in fade-in">
+              <h3 className="text-xl font-bold text-white">Phát hiện bài tập đang làm dở</h3>
+              <p className="text-sm text-slate-400">Bạn có muốn tiếp tục phiên đọc hiểu trước đó hay tạo bài tập mới?</p>
+              <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                <button
+                  onClick={() => {
+                    setArticle(pendingSession.article)
+                    setQuestions(pendingSession.questions || [])
+                    setAnswers(pendingSession.answers || {})
+                    setSubmitted(pendingSession.submitted || false)
+                    setPendingSession(null)
+                  }}
+                  className="px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition-all shadow-lg shadow-cyan-500/20"
+                >
+                  Tiếp Tục Bài Cũ
+                </button>
+                <button
+                  onClick={() => handleGenerate()}
+                  className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+                >
+                  Tạo Bài Mới (Xóa cũ)
+                </button>
+              </div>
+            </div>
+          ) : article ? (
             <div className="glass-card p-8 rounded-3xl border border-slate-800 relative">
               <div className="absolute top-4 right-4 text-xs font-bold bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full border border-cyan-500/20">
                 AI Generated
@@ -279,7 +304,12 @@ export default function ReadingPage() {
                 </button>
               )}
             </div>
-          )}
+          ) : !loading && !generating ? (
+            <div className="glass-card p-10 text-center rounded-3xl border border-slate-800 space-y-4">
+               <BookText className="w-12 h-12 text-slate-600 mx-auto" />
+               <p className="text-slate-400">Bấm nút <span className="text-cyan-400 font-bold">Tạo Bài Đọc</span> để AI viết một bài báo ngắn bằng tiếng Anh dựa trên bộ từ vựng của bạn.</p>
+            </div>
+          ) : null}
         </div>
 
         <div className="md:col-span-1">

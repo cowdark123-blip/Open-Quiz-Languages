@@ -51,7 +51,16 @@ export default function SRSForecastChart() {
       setData(days)
       setLoading(false)
     }
+    
     loadData()
+    
+    const handleFocus = () => loadData()
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('popstate', handleFocus)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('popstate', handleFocus)
+    }
   }, [])
 
   if (loading) {

@@ -29,6 +29,7 @@ export default function GrammarPage() {
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [submitted, setSubmitted] = useState(false)
   const [targetBand, setTargetBand] = useState('co_ban')
+  const [pendingSession, setPendingSession] = useState<any>(null)
 
   useEffect(() => {
     async function fetchBand() {
@@ -39,11 +40,8 @@ export default function GrammarPage() {
 
     const loadSession = async () => {
       const sessionData = await loadActiveSession('grammar', 'default')
-      if (sessionData && sessionData.practiceQuestions) {
-        setPracticeQuestions(sessionData.practiceQuestions)
-        setAnswers(sessionData.answers || {})
-        setSubmitted(sessionData.submitted || false)
-        setSelectedTopic(sessionData.selectedTopic || TOPICS[0])
+      if (sessionData && sessionData.practiceQuestions && sessionData.practiceQuestions.length > 0) {
+        setPendingSession(sessionData)
         setActiveTab('practice')
       }
     }
@@ -77,6 +75,7 @@ export default function GrammarPage() {
   }
 
   const handleGeneratePractice = async () => {
+    setPendingSession(null)
     setGenerating(true)
     setPracticeQuestions([])
     setAnswers({})
@@ -235,7 +234,32 @@ export default function GrammarPage() {
             </button>
           </div>
 
-          {practiceQuestions.length > 0 && (
+          {pendingSession ? (
+            <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 text-center space-y-4 animate-in fade-in">
+              <h3 className="text-xl font-bold text-white">Phát hiện bài tập đang làm dở</h3>
+              <p className="text-sm text-slate-400">Bạn có muốn tiếp tục bài tập ngữ pháp trước đó hay tạo bài tập mới?</p>
+              <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                <button
+                  onClick={() => {
+                    setPracticeQuestions(pendingSession.practiceQuestions)
+                    setAnswers(pendingSession.answers || {})
+                    setSubmitted(pendingSession.submitted || false)
+                    setSelectedTopic(pendingSession.selectedTopic || TOPICS[0])
+                    setPendingSession(null)
+                  }}
+                  className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all shadow-lg shadow-emerald-500/20"
+                >
+                  Tiếp Tục Bài Cũ
+                </button>
+                <button
+                  onClick={() => setPendingSession(null)}
+                  className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+                >
+                  Xóa Bài Cũ
+                </button>
+              </div>
+            </div>
+          ) : practiceQuestions.length > 0 ? (
             <div className="glass-panel p-6 md:p-8 rounded-3xl border border-slate-800 animate-in fade-in">
               <h3 className="text-xl font-bold text-white mb-6">Bài tập: {selectedTopic}</h3>
               <div className="space-y-8">
@@ -303,7 +327,12 @@ export default function GrammarPage() {
                 </button>
               )}
             </div>
-          )}
+          ) : !generating ? (
+            <div className="glass-card p-10 text-center rounded-3xl border border-slate-800 space-y-4">
+               <PenTool className="w-12 h-12 text-slate-600 mx-auto" />
+               <p className="text-slate-400">Bấm nút <span className="text-emerald-400 font-bold">Tạo Bài Tập</span> để hệ thống sinh ra bài tập ngữ pháp.</p>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

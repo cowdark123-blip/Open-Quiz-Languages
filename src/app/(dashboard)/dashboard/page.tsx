@@ -48,6 +48,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboardData()
+    
+    const handleFocus = () => loadDashboardData()
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('popstate', handleFocus)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('popstate', handleFocus)
+    }
   }, [])
 
   const handleSeedSampleSet = async () => {
@@ -248,7 +256,16 @@ function SRSDashboardWidget({ displayName }: { displayName: string }) {
       if (mounted) setDueSrsCount(dueItems.length)
     }
     load()
-    return () => { mounted = false }
+    
+    const handleFocus = () => load()
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('popstate', handleFocus)
+    
+    return () => { 
+      mounted = false 
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('popstate', handleFocus)
+    }
   }, [])
 
   if (dueSrsCount === null) {

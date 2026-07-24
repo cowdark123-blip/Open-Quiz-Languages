@@ -24,6 +24,7 @@ export default function QuizPage() {
   const [isFinished, setIsFinished] = useState(false)
   const [score, setScore] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [pendingSession, setPendingSession] = useState<any>(null)
 
   useEffect(() => {
     loadSets()
@@ -34,13 +35,10 @@ export default function QuizPage() {
       if (!selectedSet) return
       setLoading(true)
       const sessionData = await loadActiveSession('quiz', selectedSet)
-      if (sessionData && sessionData.questions) {
-        setQuestions(sessionData.questions)
-        setCurrentIndex(sessionData.currentIndex || 0)
-        setAnswers(sessionData.answers || {})
-        setIsFinished(sessionData.isFinished || false)
-        setScore(sessionData.score || 0)
+      if (sessionData && sessionData.questions && sessionData.questions.length > 0) {
+        setPendingSession(sessionData)
       } else {
+        setPendingSession(null)
         setQuestions([])
         setCurrentIndex(0)
         setAnswers({})
@@ -64,6 +62,7 @@ export default function QuizPage() {
 
   const handleStartQuiz = async () => {
     if (!selectedSet) return
+    setPendingSession(null)
     setLoading(true)
     setQuestions([])
     setAnswers({})
@@ -190,7 +189,7 @@ export default function QuizPage() {
             ))}
           </select>
           
-          {(questions.length === 0 || isFinished) && (
+          {(questions.length === 0 || isFinished) && !pendingSession && (
             <button 
               onClick={handleStartQuiz}
               disabled={loading || !selectedSet}
@@ -203,7 +202,36 @@ export default function QuizPage() {
         </div>
       </div>
 
-      {questions.length > 0 && !isFinished && (
+      {pendingSession ? (
+        <div className="glass-panel p-8 rounded-3xl border border-rose-500/30 text-center space-y-4 animate-in fade-in">
+          <h3 className="text-xl font-bold text-white">Phát hiện bài kiểm tra đang làm dở</h3>
+          <p className="text-sm text-slate-400">Bạn có muốn tiếp tục bài kiểm tra trước đó hay tạo bài mới?</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+            <button
+              onClick={() => {
+                setQuestions(pendingSession.questions)
+                setCurrentIndex(pendingSession.currentIndex || 0)
+                setAnswers(pendingSession.answers || {})
+                setIsFinished(pendingSession.isFinished || false)
+                setScore(pendingSession.score || 0)
+                setPendingSession(null)
+              }}
+              className="px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition-all shadow-lg shadow-rose-500/20"
+            >
+              Tiếp Tục Bài Cũ
+            </button>
+            <button
+              onClick={() => {
+                setPendingSession(null)
+                handleStartQuiz()
+              }}
+              className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+            >
+              Tạo Bài Mới (Xóa cũ)
+            </button>
+          </div>
+        </div>
+      ) : questions.length > 0 && !isFinished && (
         <div className="glass-card p-8 rounded-3xl border border-slate-800 animate-in fade-in">
           <div className="flex items-center justify-between mb-8">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">

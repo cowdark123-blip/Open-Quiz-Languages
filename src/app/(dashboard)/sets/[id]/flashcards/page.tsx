@@ -26,6 +26,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const [reviewCount, setReviewCount] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
   const [toast, setToast] = useState('')
+  const [pendingSession, setPendingSession] = useState<any>(null)
   const pendingSaves = React.useRef<Promise<any>[]>([])
 
   const toggleStar = async (e: React.MouseEvent) => {
@@ -45,12 +46,10 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       setCurrentSet(setObj)
 
       const sessionData = await loadActiveSession('flashcards', setId)
-      if (sessionData && sessionData.cards) {
-        setCards(sessionData.cards)
-        setCurrentIndex(sessionData.currentIndex || 0)
-        setMasteredCount(sessionData.masteredCount || 0)
-        setReviewCount(sessionData.reviewCount || 0)
+      if (sessionData && sessionData.cards && sessionData.cards.length > 0) {
+        setPendingSession(sessionData)
       } else {
+        setPendingSession(null)
         setCards([...itemsList].sort(() => Math.random() - 0.5))
       }
       setLoading(false)
@@ -111,14 +110,18 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     }
   }, [currentIndex, cards.length, currentCard, setId])
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
+    setLoading(true)
     setCurrentIndex(0)
     setIsFlipped(false)
     setMasteredCount(0)
     setReviewCount(0)
     setIsCompleted(false)
-    setCards((prev) => [...prev].sort(() => Math.random() - 0.5))
-    deleteActiveSession('flashcards', setId)
+    
+    const itemsList = await fetchVocabItems(setId)
+    setCards([...itemsList].sort(() => Math.random() - 0.5))
+    await deleteActiveSession('flashcards', setId)
+    setLoading(false)
   }
 
   const handleSaveAndExit = async () => {
@@ -257,7 +260,35 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         />
       </div>
 
-      {!isCompleted ? (
+      {pendingSession ? (
+        <div className="glass-panel p-8 rounded-3xl border border-purple-500/30 text-center space-y-4 animate-in fade-in max-w-2xl mx-auto mt-12">
+          <h3 className="text-xl font-bold text-white">Phát hiện bài học đang làm dở</h3>
+          <p className="text-sm text-slate-400">Bạn có muốn tiếp tục phiên học Flashcard trước đó hay bắt đầu lại từ đầu?</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+            <button
+              onClick={() => {
+                setCards(pendingSession.cards)
+                setCurrentIndex(pendingSession.currentIndex || 0)
+                setMasteredCount(pendingSession.masteredCount || 0)
+                setReviewCount(pendingSession.reviewCount || 0)
+                setPendingSession(null)
+              }}
+              className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition-all shadow-lg shadow-purple-500/20"
+            >
+              Tiếp Tục Phiên Cũ
+            </button>
+            <button
+              onClick={() => {
+                setPendingSession(null)
+                handleRestart()
+              }}
+              className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+            >
+              Học Lại Từ Đầu (Xóa cũ)
+            </button>
+          </div>
+        </div>
+      ) : !isCompleted ? (
         <div className="space-y-6">
           {/* 3D Flip Card Container */}
           <div className="perspective-1000 w-full max-w-xl mx-auto min-h-[420px] cursor-pointer select-none">

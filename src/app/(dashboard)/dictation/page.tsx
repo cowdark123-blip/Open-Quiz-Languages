@@ -21,6 +21,7 @@ export default function DictationPage() {
   const [targetBand, setTargetBand] = useState('co_ban')
   const [rate, setRate] = useState(1.0)
   const [loadingAi, setLoadingAi] = useState(false)
+  const [pendingSession, setPendingSession] = useState<any>(null)
 
   useEffect(() => {
     loadSets()
@@ -42,27 +43,27 @@ export default function DictationPage() {
     setSets(userSets)
     if (userSets.length > 0) {
       setSelectedSet(userSets[0].id)
-      loadItems(userSets[0].id)
+      checkSession(userSets[0].id)
+    }
+    setLoading(false)
+  }
+
+  const checkSession = async (setId: string) => {
+    setLoading(true)
+    const sessionData = await loadActiveSession('dictation', setId)
+    if (sessionData && sessionData.items && sessionData.items.length > 0) {
+      setPendingSession(sessionData)
+    } else {
+      setPendingSession(null)
+      setItems([]) // Wait for explicit start
     }
     setLoading(false)
   }
 
   const loadItems = async (setId: string, forceNew: boolean = false) => {
-    setLoading(true)
-    if (!forceNew) {
-      const sessionData = await loadActiveSession('dictation', setId)
-      if (sessionData && sessionData.items && sessionData.items.length > 0) {
-        setItems(sessionData.items)
-        setCurrentIndex(sessionData.currentIndex || 0)
-        setInput(sessionData.input || '')
-        setChecked(sessionData.checked || false)
-        setDiffResult(sessionData.diffResult || [])
-        setLoading(false)
-        return
-      }
-    }
-    
+    setPendingSession(null)
     setLoadingAi(true)
+    setItems([])
     const fetched = await fetchVocabItems(setId)
     if (fetched.length === 0) {
       setItems([])
@@ -104,7 +105,8 @@ export default function DictationPage() {
 
   const handleSetChange = (setId: string) => {
     setSelectedSet(setId)
-    loadItems(setId)
+    setItems([])
+    checkSession(setId)
   }
 
   const playAudio = (isSlow: boolean = false) => {
@@ -227,9 +229,48 @@ export default function DictationPage() {
         </div>
       </div>
 
-      {!loading && !loadingAi && items.length === 0 ? (
-        <div className="glass-card p-10 text-center rounded-3xl border border-slate-800">
-          <p className="text-slate-400">Bộ từ vựng này chưa có đủ từ để luyện nghe chép.</p>
+      {!loading && !loadingAi && pendingSession ? (
+        <div className="glass-panel p-8 rounded-3xl border border-amber-500/30 text-center space-y-4 animate-in fade-in">
+          <h3 className="text-xl font-bold text-white">Phát hiện bài tập đang làm dở</h3>
+          <p className="text-sm text-slate-400">Bạn có muốn tiếp tục phiên học trước đó hay tạo bài tập mới hoàn toàn?</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+            <button
+              onClick={() => {
+                setItems(pendingSession.items)
+                setCurrentIndex(pendingSession.currentIndex || 0)
+                setInput(pendingSession.input || '')
+                setChecked(pendingSession.checked || false)
+                setDiffResult(pendingSession.diffResult || [])
+                setPendingSession(null)
+              }}
+              className="px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold transition-all shadow-lg shadow-amber-500/20"
+            >
+              Tiếp Tục Bài Cũ
+            </button>
+            <button
+              onClick={() => loadItems(selectedSet, true)}
+              className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+            >
+              Tạo Bài Mới (Xóa cũ)
+            </button>
+          </div>
+        </div>
+      ) : !loading && !loadingAi && items.length === 0 ? (
+        <div className="glass-card p-10 text-center rounded-3xl border border-slate-800 space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto">
+            <Headphones className="w-8 h-8 text-amber-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white mb-2">Bắt Đầu Luyện Nghe</h3>
+            <p className="text-slate-400 text-sm">Hệ thống sẽ tạo các câu ví dụ từ bộ từ vựng để bạn luyện nghe chép chính tả.</p>
+          </div>
+          <button
+            onClick={() => loadItems(selectedSet, true)}
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 mx-auto"
+          >
+            <Sparkles className="w-5 h-5" />
+            Tạo Bài Tập Mới
+          </button>
         </div>
       ) : !loading && !loadingAi && items.length > 0 ? (
         <div className="glass-panel p-8 rounded-3xl border border-slate-800 space-y-8">
