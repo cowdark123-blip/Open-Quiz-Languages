@@ -40,8 +40,24 @@ export function BugReportModal({ isOpen, onClose }: BugReportModalProps) {
 
     setSubmitting(true)
 
-    // Simulate sending report payload to server/log
-    await new Promise((resolve) => setTimeout(resolve, 800))
+    try {
+      await fetch('https://formsubmit.co/ajax/sbdduc48@gmail.com', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          _subject: `[OpenQuiz Bug] ${severity} - ${category}`,
+          Category: category,
+          Severity: severity,
+          Description: description,
+          Reference_URL: urlTag || 'None'
+        })
+      })
+    } catch (e) {
+      console.error(e)
+    }
 
     setSubmitting(false)
     setToastMessage('Báo cáo sự cố đã được gửi thành công! Cảm ơn sự đóng góp của bạn.')
