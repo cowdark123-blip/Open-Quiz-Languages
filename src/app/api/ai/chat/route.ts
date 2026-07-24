@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server'
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function POST(req: Request) {
   try {
@@ -8,9 +11,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing scenario or messages' }, { status: 400 })
     }
 
-    const GROQ_API_KEY = process.env.GROQ_API_KEY
-    if (!GROQ_API_KEY) {
-      return NextResponse.json({ error: 'GROQ_API_KEY is not configured' }, { status: 500 })
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ error: 'GEMINI_API_KEY is not configured' }, { status: 500 })
     }
 
     let difficultyInstruction = ''
@@ -53,43 +55,15 @@ You MUST respond in strict JSON format:
   "nativeSuggestion": "A more natural way to say it in English (or null if already perfect)"
 }`
 
-    const apiMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages.map((m: any) => ({
-        role: m.role,
-        content: m.content
-      }))
-    ]
+    // Combine system + history into a single prompt for Gemini
+    const historyText = messages.map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
+    const fullPrompt = `${systemPrompt}\n\nConversation so far:\n${historyText}\n\nRespond now:`
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: apiMessages,
-        temperature: 0.7,
-        max_tokens: 500,
-        response_format: { type: "json_object" }
-      })
-    })
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const result = await model.generateContent(fullPrompt)
+    const text = result.response.text().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const parsed = JSON.parse(text)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Groq API Error:', errorText)
-      return NextResponse.json({ error: 'Failed to generate response' }, { status: response.status })
-    }
-
-    const data = await response.json()
-    const content = data.choices[0]?.message?.content
-
-    if (!content) {
-      return NextResponse.json({ error: 'Empty response from Groq' }, { status: 500 })
-    }
-
-    const parsed = JSON.parse(content)
     return NextResponse.json(parsed)
   } catch (error) {
     console.error('Error in /api/ai/chat:', error)

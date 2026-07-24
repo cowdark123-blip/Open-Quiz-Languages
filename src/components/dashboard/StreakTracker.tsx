@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame, Trophy, Calendar, CheckCircle, Zap, Info, X } from 'lucide-react'
+import { Flame, Trophy, Calendar, CheckCircle, Zap, X } from 'lucide-react'
 import { getCurrentUserProfile, updateUserStreak } from '@/lib/supabase/data-service'
 
 interface StreakTrackerProps {
@@ -12,6 +12,7 @@ interface StreakTrackerProps {
 export function StreakTracker({ initialStreak }: StreakTrackerProps) {
   const [streakCount, setStreakCount] = useState<number>(initialStreak || 1)
   const [bestStreak, setBestStreak] = useState<number>(1)
+  const [streakStartDate, setStreakStartDate] = useState<string | null>(null)
   const [isOpenStats, setIsOpenStats] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -22,7 +23,15 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
       const activeStreak = await updateUserStreak(user.id)
       const current = activeStreak || profile?.streak_count || 1
       setStreakCount(current)
-      setBestStreak(Math.max(current, (profile?.streak_count || 1) + 2))
+      setBestStreak(Math.max(current, profile?.streak_count || 1))
+
+      // Compute streak start date from last_active_date - streak_count + 1 days
+      const lastActive = profile?.last_active_date
+      if (lastActive && current > 0) {
+        const d = new Date(lastActive)
+        d.setDate(d.getDate() - (current - 1))
+        setStreakStartDate(d.toISOString().split('T')[0])
+      }
     }
     setLoading(false)
   }
@@ -34,26 +43,25 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
     return () => window.removeEventListener('streak-updated', handleUpdate)
   }, [])
 
-  // Generate simulated 28-day heat map (4 weeks, Mon-Sun)
+  // Generate 28-day grid with real streak coloring
   const daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
   
-  // Last 28 days calculation
   const generateHistoryDays = () => {
     const days = []
     const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const startMs = streakStartDate ? new Date(streakStartDate).getTime() : null
+
     for (let i = 27; i >= 0; i--) {
       const d = new Date()
       d.setDate(today.getDate() - i)
+      d.setHours(0, 0, 0, 0)
       const dateStr = d.toISOString().split('T')[0]
-      // Mark as active if within streak count or recent active days
       const isToday = i === 0
-      const isActive = i < streakCount || (i % 3 === 0 && i < 20)
-      days.push({
-        dateStr,
-        dayNum: d.getDate(),
-        isActive,
-        isToday,
-      })
+      // Active = within current streak window (from streakStartDate to today)
+      const isActive = startMs !== null && d.getTime() >= startMs && d.getTime() <= today.getTime()
+      days.push({ dateStr, dayNum: d.getDate(), isActive, isToday })
     }
     return days
   }
@@ -67,31 +75,23 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpenStats(true)}
-        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 border border-orange-500/40 text-amber-300 text-xs font-extrabold shadow-lg shadow-orange-500/10 hover:border-orange-400 transition-all cursor-pointer group"
+        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 border border-orange-500/40 text-amber-300 text-xs font-extrabold shadow-lg shadow-orange-500/10 hover:border-orange-400 transition-all cursor-pointer group overflow-hidden"
       >
-        {/* Animated Flame Icon */}
         <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [-4, 4, -4],
-          }}
-          transition={{
-            duration: 1.8,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-          className="relative flex items-center justify-center"
+          animate={{ scale: [1, 1.2, 1], rotate: [-4, 4, -4] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+          className="relative flex items-center justify-center shrink-0"
         >
           <Flame className="w-4 h-4 text-orange-400 fill-orange-500 group-hover:text-amber-300 transition-colors drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
         </motion.div>
 
-        <span className="tracking-tight flex items-center gap-1">
+        <span className="tracking-tight flex items-center gap-1 min-w-0">
           <strong className="text-white text-sm font-black">{streakCount}</strong>
-          <span>Ngày liên tiếp</span>
+          <span className="truncate">Ngày liên tiếp</span>
         </span>
       </motion.button>
 
-      {/* Stats Popover / Modal */}
+      {/* Stats Modal */}
       <AnimatePresence>
         {isOpenStats && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
@@ -117,13 +117,10 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
                     <Flame className="w-6 h-6 fill-orange-500" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-white flex items-center gap-2">
-                      Chuỗi Học Tập (Streak)
-                    </h3>
+                    <h3 className="text-lg font-black text-white">Chuỗi Học Tập (Streak)</h3>
                     <p className="text-xs text-slate-400">Theo dõi thói quen rèn luyện tiếng Anh mỗi ngày</p>
                   </div>
                 </div>
-
                 <button
                   onClick={() => setIsOpenStats(false)}
                   className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
@@ -132,7 +129,7 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
                 </button>
               </div>
 
-              {/* KPI Score Cards */}
+              {/* KPI Cards */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col items-center justify-center text-center">
                   <div className="text-[11px] text-slate-400 font-semibold mb-1 flex items-center gap-1">
@@ -155,7 +152,7 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
                 </div>
               </div>
 
-              {/* Weekly Calendar Heat Grid */}
+              {/* Calendar */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-300">
                   <span className="flex items-center gap-1.5">
@@ -168,20 +165,18 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
                   </span>
                 </div>
 
-                {/* Day Labels */}
                 <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 gap-1">
                   {daysOfWeek.map((day) => (
                     <div key={day}>{day}</div>
                   ))}
                 </div>
 
-                {/* 28 Day Grid Cells */}
                 <div className="grid grid-cols-7 gap-1.5">
                   {historyDays.map((d, index) => (
                     <div
                       key={index}
                       title={`${d.dateStr}: ${d.isActive ? 'Đã học' : 'Nghỉ'}`}
-                      className={`h-8 rounded-xl flex items-center justify-center text-[10px] font-bold transition-all relative ${
+                      className={`h-8 rounded-xl flex items-center justify-center text-[10px] font-bold transition-all ${
                         d.isActive
                           ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-slate-950 font-black shadow-md shadow-orange-500/20'
                           : 'bg-slate-900/60 text-slate-600 border border-slate-800'
