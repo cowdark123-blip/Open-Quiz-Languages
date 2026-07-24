@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X, Sparkles, Loader2, Trash2, Plus, FileInput, Check } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { X, Sparkles, Loader2, Trash2, Plus, FileInput, Check, RefreshCw } from 'lucide-react'
 import { VocabItem } from '@/types/database'
 
 export interface ParsedItem {
@@ -18,10 +18,16 @@ export interface ParsedItem {
 interface BulkImportModalProps {
   isOpen: boolean
   onClose: () => void
-  onImport: (items: Partial<VocabItem>[]) => Promise<boolean | void>
+  onImport: (items: Partial<VocabItem>[], overwrite?: boolean) => Promise<boolean | void>
+  existingItems?: (VocabItem | Partial<VocabItem>)[]
 }
 
-export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImportModalProps) {
+export default function BulkImportModal({
+  isOpen,
+  onClose,
+  onImport,
+  existingItems = [],
+}: BulkImportModalProps) {
   const [rawText, setRawText] = useState('')
   const [fieldSep, setFieldSep] = useState<'tab' | 'comma' | 'custom'>('tab')
   const [customFieldSep, setCustomFieldSep] = useState('-')
@@ -29,6 +35,7 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
   
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([])
   const [useAiFill, setUseAiFill] = useState(false)
+  const [overwrite, setOverwrite] = useState(false)
   const [loading, setLoading] = useState(false)
   const [aiProgress, setAiProgress] = useState<{ current: number; total: number } | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -77,6 +84,53 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
     setParsedItems(items)
   }, [rawText, fieldSep, customFieldSep, cardSep])
 
+  // Duplicate detection computation
+  const itemDuplicates = useMemo(() => {
+    return parsedItems.map((item, idx) => {
+      const termLower = item.term.trim().toLowerCase()
+      const defLower = (item.definition || item.vietnamese_translation || '').trim().toLowerCase()
+
+      const isTermDupInternal =
+        termLower !== '' &&
+        parsedItems.some(
+          (other, oIdx) => oIdx !== idx && other.term.trim().toLowerCase() === termLower
+        )
+      const isDefDupInternal =
+        defLower !== '' &&
+        parsedItems.some(
+          (other, oIdx) =>
+            oIdx !== idx &&
+            (other.definition || other.vietnamese_translation || '').trim().toLowerCase() === defLower
+        )
+
+      const isTermDupDb =
+        termLower !== '' &&
+        existingItems.some((e) => (e.term || '').trim().toLowerCase() === termLower)
+      const isDefDupDb =
+        defLower !== '' &&
+        existingItems.some(
+          (e) =>
+            (e.definition || '').trim().toLowerCase() === defLower ||
+            (e.vietnamese_translation && e.vietnamese_translation.trim().toLowerCase() === defLower)
+        )
+
+      const isTermDup = isTermDupInternal || isTermDupDb
+      const isDefDup = isDefDupInternal || isDefDupDb
+      const isDup = isTermDup || isDefDup
+
+      return {
+        id: item.id,
+        isTermDup,
+        isDefDup,
+        isDup,
+      }
+    })
+  }, [parsedItems, existingItems])
+
+  const dupCount = useMemo(() => {
+    return itemDuplicates.filter((d) => d.isDup).length
+  }, [itemDuplicates])
+
   if (!isOpen) return null
 
   const handleUpdateItem = (id: string, field: keyof ParsedItem, value: any) => {
@@ -99,6 +153,11 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
 
   const handleDeleteItem = (id: string) => {
     setParsedItems((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const handleRemoveAllDuplicates = () => {
+    const dupMap = new Map(itemDuplicates.map((d) => [d.id, d.isDup]))
+    setParsedItems((prev) => prev.filter((item) => !dupMap.get(item.id)))
   }
 
   const handleAddEmptyRow = () => {
@@ -161,7 +220,7 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
                 }
               }
             } catch {
-              // Ignore single item AI errors and keep existing data
+              // Ignore single item AI errors
             }
             count++
             setAiProgress({ current: count, total: itemsToFill.length })
@@ -180,7 +239,7 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
       synonyms: item.synonyms || [],
     }))
 
-    const success = await onImport(payload)
+    const success = await onImport(payload, overwrite)
     setLoading(false)
     setAiProgress(null)
 
@@ -203,7 +262,7 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
               <FileInput className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Nhập Dữ Liệu Hàng Loại</h3>
+              <h3 className="text-lg font-bold text-white">Nhập Dữ Liệu Hàng Loạt</h3>
               <p className="text-xs text-slate-400">Chép và dán dữ liệu từ Word, Excel, Google Docs, Quizlet v.v.</p>
             </div>
           </div>
@@ -319,22 +378,39 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
 
           {/* Preview Table Section */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider">Bảng Xem Trước (Preview)</h4>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
                   Đã nhận diện {parsedItems.length} từ vựng
                 </span>
+                {dupCount > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold animate-pulse">
+                    ⚠️ {dupCount} từ bị trùng
+                  </span>
+                )}
               </div>
 
-              <button
-                type="button"
-                onClick={handleAddEmptyRow}
-                className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 font-semibold"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Thêm dòng</span>
-              </button>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {dupCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAllDuplicates}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 font-semibold transition-all"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa nhanh {dupCount} từ trùng 🗑️</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleAddEmptyRow}
+                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 font-semibold"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm dòng</span>
+                </button>
+              </div>
             </div>
 
             {parsedItems.length > 0 ? (
@@ -343,8 +419,8 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
                   <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] sticky top-0 border-b border-slate-800">
                     <tr>
                       <th className="py-2.5 px-3 w-12 text-center">STT</th>
-                      <th className="py-2.5 px-3 min-w-[120px]">Từ / Cụm từ *</th>
-                      <th className="py-2.5 px-3 min-w-[150px]">Định nghĩa / Dịch nghĩa</th>
+                      <th className="py-2.5 px-3 min-w-[140px]">Từ / Cụm từ *</th>
+                      <th className="py-2.5 px-3 min-w-[160px]">Định nghĩa / Dịch nghĩa</th>
                       <th className="py-2.5 px-3 min-w-[100px]">IPA</th>
                       <th className="py-2.5 px-3 min-w-[150px]">Ví dụ</th>
                       <th className="py-2.5 px-3 min-w-[120px]">Từ đồng nghĩa</th>
@@ -352,68 +428,96 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {parsedItems.map((item, idx) => (
-                      <tr key={item.id} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="py-2 px-3 text-center text-slate-500 font-mono text-[11px]">{idx + 1}</td>
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            value={item.term}
-                            onChange={(e) => handleUpdateItem(item.id, 'term', e.target.value)}
-                            placeholder="Thuật ngữ..."
-                            className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-purple-500 font-bold"
-                          />
-                        </td>
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            value={item.definition}
-                            onChange={(e) => {
-                              handleUpdateItem(item.id, 'definition', e.target.value)
-                              handleUpdateItem(item.id, 'vietnamese_translation', e.target.value)
-                            }}
-                            placeholder="Nghĩa..."
-                            className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-purple-500"
-                          />
-                        </td>
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            value={item.ipa || ''}
-                            onChange={(e) => handleUpdateItem(item.id, 'ipa', e.target.value)}
-                            placeholder="/.../"
-                            className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-purple-300 font-mono focus:outline-none focus:border-purple-500"
-                          />
-                        </td>
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            value={item.example_sentence || ''}
-                            onChange={(e) => handleUpdateItem(item.id, 'example_sentence', e.target.value)}
-                            placeholder="Câu ví dụ..."
-                            className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-purple-500"
-                          />
-                        </td>
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            value={item.synonymsText || ''}
-                            onChange={(e) => handleUpdateItem(item.id, 'synonymsText', e.target.value)}
-                            placeholder="Đồng nghĩa..."
-                            className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-400 focus:outline-none focus:border-purple-500"
-                          />
-                        </td>
-                        <td className="py-1.5 px-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {parsedItems.map((item, idx) => {
+                      const dupState = itemDuplicates[idx] || {
+                        isDup: false,
+                        isTermDup: false,
+                        isDefDup: false,
+                      }
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`transition-colors ${
+                            dupState.isDup
+                              ? 'bg-amber-500/10 border-2 border-amber-500/80 shadow-md'
+                              : 'hover:bg-slate-900/40'
+                          }`}
+                        >
+                          <td className="py-2 px-3 text-center text-slate-500 font-mono text-[11px]">{idx + 1}</td>
+                          <td className="py-1.5 px-2">
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={item.term}
+                                onChange={(e) => handleUpdateItem(item.id, 'term', e.target.value)}
+                                placeholder="Thuật ngữ..."
+                                className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-purple-500 font-bold"
+                              />
+                              {dupState.isTermDup && (
+                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                  ⚠️ Trùng từ
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={item.definition}
+                                onChange={(e) => {
+                                  handleUpdateItem(item.id, 'definition', e.target.value)
+                                  handleUpdateItem(item.id, 'vietnamese_translation', e.target.value)
+                                }}
+                                placeholder="Nghĩa..."
+                                className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-purple-500"
+                              />
+                              {dupState.isDefDup && (
+                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                                  ⚠️ Trùng nghĩa
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <input
+                              type="text"
+                              value={item.ipa || ''}
+                              onChange={(e) => handleUpdateItem(item.id, 'ipa', e.target.value)}
+                              placeholder="/.../"
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-purple-300 font-mono focus:outline-none focus:border-purple-500"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <input
+                              type="text"
+                              value={item.example_sentence || ''}
+                              onChange={(e) => handleUpdateItem(item.id, 'example_sentence', e.target.value)}
+                              placeholder="Câu ví dụ..."
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-purple-500"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <input
+                              type="text"
+                              value={item.synonymsText || ''}
+                              onChange={(e) => handleUpdateItem(item.id, 'synonymsText', e.target.value)}
+                              placeholder="Đồng nghĩa..."
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-400 focus:outline-none focus:border-purple-500"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -424,24 +528,47 @@ export default function BulkImportModal({ isOpen, onClose, onImport }: BulkImpor
             )}
           </div>
 
-          {/* AI Auto-Fill Option */}
-          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-purple-950/30 border border-purple-800/40">
-            <input
-              type="checkbox"
-              id="useAiFill"
-              checked={useAiFill}
-              onChange={(e) => setUseAiFill(e.target.checked)}
-              className="w-4 h-4 rounded accent-purple-600 cursor-pointer"
-            />
-            <label htmlFor="useAiFill" className="text-xs text-purple-200 cursor-pointer font-medium select-none">
-              <span className="font-bold flex items-center gap-1.5 inline-flex">
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                <span>Bổ sung thông tin bằng AI ✨</span>
-              </span>
-              <span className="block text-[11px] text-slate-400 mt-0.5">
-                Tự động dùng AI điền IPA, định nghĩa, nghĩa Tiếng Việt & ví dụ cho các từ bị thiếu thông tin.
-              </span>
-            </label>
+          {/* AI & Overwrite Options */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* AI Auto-Fill Option */}
+            <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-purple-950/30 border border-purple-800/40">
+              <input
+                type="checkbox"
+                id="useAiFill"
+                checked={useAiFill}
+                onChange={(e) => setUseAiFill(e.target.checked)}
+                className="w-4 h-4 rounded accent-purple-600 cursor-pointer"
+              />
+              <label htmlFor="useAiFill" className="text-xs text-purple-200 cursor-pointer font-medium select-none">
+                <span className="font-bold flex items-center gap-1.5 inline-flex">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Bổ sung thông tin bằng AI ✨</span>
+                </span>
+                <span className="block text-[11px] text-slate-400 mt-0.5">
+                  Tự động dùng AI điền IPA, định nghĩa, nghĩa Tiếng Việt & ví dụ cho các từ bị thiếu.
+                </span>
+              </label>
+            </div>
+
+            {/* Overwrite Duplicate Option */}
+            <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-amber-950/30 border border-amber-800/40">
+              <input
+                type="checkbox"
+                id="overwrite"
+                checked={overwrite}
+                onChange={(e) => setOverwrite(e.target.checked)}
+                className="w-4 h-4 rounded accent-amber-600 cursor-pointer"
+              />
+              <label htmlFor="overwrite" className="text-xs text-amber-200 cursor-pointer font-medium select-none">
+                <span className="font-bold flex items-center gap-1.5 inline-flex">
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Ghi đè từ cũ 🔄</span>
+                </span>
+                <span className="block text-[11px] text-slate-400 mt-0.5">
+                  Cập nhật nội dung mới (UPDATE) lên từ đã có sẵn thay vì tạo thêm bản ghi trùng lặp.
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 

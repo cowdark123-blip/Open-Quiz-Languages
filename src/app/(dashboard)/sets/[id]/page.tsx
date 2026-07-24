@@ -210,17 +210,52 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     setIsModalOpen(false)
   }
 
-  const handleBulkImport = async (importedItems: Partial<VocabItem>[]) => {
-    const itemsWithSetId = importedItems.map((item) => ({
-      ...item,
-      set_id: setId,
-    }))
-    const inserted = await insertVocabItemsBatch(itemsWithSetId)
-    if (inserted && inserted.length > 0) {
-      setItems((prev) => [...prev, ...inserted])
+  const handleBulkImport = async (importedItems: Partial<VocabItem>[], overwrite?: boolean) => {
+    if (overwrite) {
+      const toUpdate: { id: string; payload: Partial<VocabItem> }[] = []
+      const toInsert: Partial<VocabItem>[] = []
+
+      for (const item of importedItems) {
+        const termLower = (item.term || '').trim().toLowerCase()
+        const defLower = (item.definition || item.vietnamese_translation || '').trim().toLowerCase()
+
+        const existing = items.find(
+          (e) =>
+            (termLower && e.term.trim().toLowerCase() === termLower) ||
+            (defLower && e.definition.trim().toLowerCase() === defLower) ||
+            (defLower && e.vietnamese_translation && e.vietnamese_translation.trim().toLowerCase() === defLower)
+        )
+
+        if (existing) {
+          toUpdate.push({ id: existing.id, payload: item })
+        } else {
+          toInsert.push({ ...item, set_id: setId })
+        }
+      }
+
+      for (const u of toUpdate) {
+        await apiUpdateVocabItem(u.id, u.payload)
+      }
+
+      if (toInsert.length > 0) {
+        await insertVocabItemsBatch(toInsert)
+      }
+
+      const freshItems = await fetchVocabItems(setId)
+      setItems(freshItems)
       return true
+    } else {
+      const itemsWithSetId = importedItems.map((item) => ({
+        ...item,
+        set_id: setId,
+      }))
+      const inserted = await insertVocabItemsBatch(itemsWithSetId)
+      if (inserted && inserted.length > 0) {
+        setItems((prev) => [...prev, ...inserted])
+        return true
+      }
+      return false
     }
-    return false
   }
 
   const handleDeleteItem = async (itemId: string) => {
@@ -333,31 +368,62 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
 
       {/* Vocab Items Grid */}
       <div className="space-y-4">
-        {items.map((item, idx) => (
-          <div
-            key={item.id}
-            className="glass-card p-5 rounded-2xl border border-slate-800/90 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-purple-500/30 transition-all group"
-          >
-            <div className="flex items-start gap-4 flex-1">
-              <span className="w-7 h-7 rounded-lg bg-slate-900 text-slate-500 text-xs font-mono font-bold flex items-center justify-center shrink-0 border border-slate-800">
-                {idx + 1}
-              </span>
-              <div className="space-y-1">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h4 className="text-lg font-extrabold text-white tracking-wide">{item.term}</h4>
-                  {item.ipa && (
-                    <span className="text-xs font-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                      {item.ipa}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => playAudio(item.term)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-colors"
-                    title="Nghe phát âm chuẩn"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
-                </div>
+        {items.map((item, idx) => {
+          const termLower = item.term.trim().toLowerCase()
+          const defLower = (item.definition || item.vietnamese_translation || '').trim().toLowerCase()
+
+          const isTermDup =
+            termLower !== '' &&
+            items.some((other) => other.id !== item.id && other.term.trim().toLowerCase() === termLower)
+          const isDefDup =
+            defLower !== '' &&
+            items.some(
+              (other) =>
+                other.id !== item.id &&
+                ((other.definition || '').trim().toLowerCase() === defLower ||
+                  (other.vietnamese_translation && other.vietnamese_translation.trim().toLowerCase() === defLower))
+            )
+          const isDup = isTermDup || isDefDup
+
+          return (
+            <div
+              key={item.id}
+              className={`glass-card p-5 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all group ${
+                isDup
+                  ? 'border-2 border-amber-500 bg-amber-500/10 shadow-md'
+                  : 'border-slate-800/90 hover:border-purple-500/30'
+              }`}
+            >
+              <div className="flex items-start gap-4 flex-1">
+                <span className="w-7 h-7 rounded-lg bg-slate-900 text-slate-500 text-xs font-mono font-bold flex items-center justify-center shrink-0 border border-slate-800">
+                  {idx + 1}
+                </span>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h4 className="text-lg font-extrabold text-white tracking-wide">{item.term}</h4>
+                    {isTermDup && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        ⚠️ Trùng từ
+                      </span>
+                    )}
+                    {isDefDup && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                        ⚠️ Trùng nghĩa
+                      </span>
+                    )}
+                    {item.ipa && (
+                      <span className="text-xs font-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                        {item.ipa}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => playAudio(item.term)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-colors"
+                      title="Nghe phát âm chuẩn"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  </div>
 
                 <p className="text-sm text-slate-300 font-medium">{item.definition}</p>
 
@@ -403,7 +469,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
               </button>
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* Modal: Add/Edit Vocab Item with AI Auto-Fill */}
@@ -433,7 +499,14 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-300">Từ / Cụm từ tiếng Anh *</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-300">Từ / Cụm từ tiếng Anh *</label>
+                    {term.trim() && items.some(e => e.id !== editingItem?.id && e.term.trim().toLowerCase() === term.trim().toLowerCase()) && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        ⚠️ Trùng từ
+                      </span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={handleAIAutoFill}
@@ -634,6 +707,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         onImport={handleBulkImport}
+        existingItems={items}
       />
     </div>
   )
