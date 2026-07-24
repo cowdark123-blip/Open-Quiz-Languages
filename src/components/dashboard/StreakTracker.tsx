@@ -59,10 +59,10 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
   const historyDays = generateHistoryDays()
 
   return (
-    <div className="relative">
+    <div className="relative overflow-visible p-1">
       {/* Interactive Streak Pill Button */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
+        whileHover={{ scale: 1.05, originX: 1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpenStats(true)}
         className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 border border-orange-500/40 text-amber-300 text-xs font-extrabold shadow-lg shadow-orange-500/10 hover:border-orange-400 transition-all cursor-pointer group whitespace-nowrap"
