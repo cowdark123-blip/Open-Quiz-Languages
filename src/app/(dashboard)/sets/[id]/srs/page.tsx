@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { VocabItem, UserSRSProgress } from '@/types/database'
 import { calculateSM2, getSM2IntervalPreviews, formatInterval, SRSGrade } from '@/lib/srs/sm2'
 import { fetchDueSRSItems, saveSRSProgress } from '@/lib/supabase/data-service'
+import { playTTS } from '@/lib/tts'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
 import { Volume2, ArrowLeft, RotateCcw, Brain, Trophy, Keyboard, Eye, Loader2, CheckCircle2 } from 'lucide-react'
 
@@ -51,13 +52,7 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
 
   const playAudio = useCallback((text: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-US'
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
+    playTTS(text)
   }, [])
 
   const handleGrade = useCallback(

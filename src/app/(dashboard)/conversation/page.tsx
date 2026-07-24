@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Mic, Send, Bot, User, Loader2, Sparkles, Volume2, RotateCcw } from 'lucide-react'
 import { getCurrentUserProfile, loadConversationHistory, saveConversationHistory, deleteConversationHistory, checkAndUpdateStreak } from '@/lib/supabase/data-service'
+import { playTTS } from '@/lib/tts'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -94,13 +95,7 @@ export default function ConversationPage() {
   }
 
   const playAudio = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-US'
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
+    playTTS(text)
   }
 
   const sendMessage = async () => {

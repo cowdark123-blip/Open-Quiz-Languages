@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
+import { playTTS } from '@/lib/tts'
 import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 
@@ -17,6 +18,7 @@ export default function DictationPage() {
   const [checked, setChecked] = useState(false)
   const [diffResult, setDiffResult] = useState<{ word: string, status: 'correct' | 'wrong' | 'missing' }[]>([])
   const [targetBand, setTargetBand] = useState('co_ban')
+  const [rate, setRate] = useState(1.0)
 
   useEffect(() => {
     loadSets()
@@ -29,7 +31,11 @@ export default function DictationPage() {
       getCurrentUserProfile()
     ])
     
-    if (profile?.target_band) setTargetBand(profile.target_band)
+    if (profile?.target_band) {
+      setTargetBand(profile.target_band)
+      if (profile.target_band === 'mat_goc') setRate(0.85)
+      else if (profile.target_band === 'nang_cao') setRate(1.1)
+    }
 
     setSets(userSets)
     if (userSets.length > 0) {
@@ -69,20 +75,9 @@ export default function DictationPage() {
   const playAudio = (isSlow: boolean = false) => {
     const sentence = items[currentIndex]?.example_sentence
     if (!sentence) return
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(sentence)
-      utterance.lang = 'en-US'
-      
-      let rate = 1.0
-      if (targetBand === 'mat_goc') rate = 0.85
-      else if (targetBand === 'nang_cao') rate = 1.1
-      
-      if (isSlow) rate = rate * 0.75
-
-      utterance.rate = rate
-      window.speechSynthesis.speak(utterance)
-    }
+    let finalRate = rate
+    if (isSlow) finalRate = finalRate * 0.75
+    playTTS(sentence, finalRate)
   }
 
   const checkAnswer = () => {

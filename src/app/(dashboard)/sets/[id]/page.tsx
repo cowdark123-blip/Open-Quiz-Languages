@@ -14,6 +14,7 @@ import {
   getCurrentUserProfile,
 } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
+import { playTTS } from '@/lib/tts'
 import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2, FolderPlus, FileInput, Star, Filter } from 'lucide-react'
 import BulkImportModal from '@/components/BulkImportModal'
 
@@ -268,13 +269,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
 
   // Audio Playback using Web Speech API
   const playAudio = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-US'
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
+    playTTS(text)
   }
 
   const handleToggleStar = async (item: VocabItem) => {
@@ -285,9 +280,10 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
 
   const getLearningStatus = (item: VocabItem) => {
     const srs = item.srsProgress
-    if (!srs || srs.repetition === 0) return 'Unlearned'
-    if (srs.repetition >= 4 || srs.interval >= 21) return 'Mastered'
-    return 'Learning'
+    if (!srs) return 'Unlearned'
+    if (srs.status === 'mastered' || srs.repetition >= 4) return 'Mastered'
+    if (srs.repetition > 0) return 'Learning'
+    return 'Unlearned'
   }
 
   const sortedItems = [...items].sort((a, b) => {
@@ -481,7 +477,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
                     {(() => {
                       const status = getLearningStatus(item)
                       if (status === 'Mastered') {
-                        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Thành thạo</span>
+                        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Đã học</span>
                       } else if (status === 'Learning') {
                         return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Đang học</span>
                       } else {

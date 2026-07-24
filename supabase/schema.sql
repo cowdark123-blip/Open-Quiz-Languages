@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS public.user_srs_progress (
   ease_factor FLOAT DEFAULT 2.5,
   next_review_date TIMESTAMPTZ DEFAULT NOW(),
   last_reviewed_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'learning',
   UNIQUE(user_id, item_id)
 );
 

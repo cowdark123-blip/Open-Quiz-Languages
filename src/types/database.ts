@@ -52,6 +52,7 @@ export interface UserSRSProgress {
   ease_factor: number
   next_review_date: string
   last_reviewed_at?: string | null
+  status?: string
 }
 
 export interface SpeakingSession {

@@ -5,8 +5,9 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import NavigationGuard from '@/components/NavigationGuard'
-import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
+import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress } from '@/lib/supabase/data-service'
 import { VocabItem, VocabSet } from '@/types/database'
+import { playTTS } from '@/lib/tts'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
 import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard, Loader2 } from 'lucide-react'
 
@@ -47,21 +48,22 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
   const currentCard = cards[currentIndex]
 
-  // Play audio TTS
   const playAudio = useCallback((text: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-US'
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
+    playTTS(text)
   }, [])
 
-  const handleNextCard = useCallback((known: boolean) => {
+  const handleNextCard = useCallback(async (known: boolean) => {
     if (known) {
       setMasteredCount((prev) => prev + 1)
+      if (currentCard) {
+        await saveSRSProgress({
+          item_id: currentCard.id,
+          repetition: 4,
+          interval: 21,
+          status: 'mastered'
+        })
+      }
     } else {
       setReviewCount((prev) => prev + 1)
     }
@@ -74,7 +76,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       setIsCompleted(true)
       deleteActiveSession('flashcards', setId)
     }
-  }, [currentIndex, cards.length])
+  }, [currentIndex, cards.length, currentCard, setId])
 
   const handleRestart = () => {
     setCurrentIndex(0)
