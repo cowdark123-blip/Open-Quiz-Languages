@@ -16,6 +16,7 @@ const themeBgClasses: Record<BackgroundTheme, string> = {
 export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
   const { theme } = useBackground()
   const [isMuted, setIsMuted] = useState(true)
+  const [volume, setVolume] = useState(50)
   const [player, setPlayer] = useState<any>(null)
   
   const videoId = theme.startsWith('youtube:') ? theme.split(':')[1] : null
@@ -35,7 +36,8 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
 
   const onReady = (event: any) => {
     setPlayer(event.target)
-    if (isMuted) {
+    event.target.setVolume(volume)
+    if (isMuted || volume === 0) {
       event.target.mute()
     } else {
       event.target.unMute()
@@ -47,10 +49,29 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
     event.target.playVideo()
   }
 
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVol = parseInt(e.target.value)
+    setVolume(newVol)
+    if (player) {
+      player.setVolume(newVol)
+      if (newVol > 0 && isMuted) {
+        player.unMute()
+        setIsMuted(false)
+      } else if (newVol === 0 && !isMuted) {
+        player.mute()
+        setIsMuted(true)
+      }
+    }
+  }
+
   const toggleMute = () => {
     if (player) {
       if (isMuted) {
         player.unMute()
+        if (volume === 0) {
+          setVolume(50)
+          player.setVolume(50)
+        }
       } else {
         player.mute()
       }
@@ -202,18 +223,32 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
       {/* Content wrapper */}
       <div className="relative z-10 min-h-screen w-full">{children}</div>
 
-      {/* Floating Draggable Volume Button */}
+      {/* Floating Draggable Volume Controls */}
       {videoId && (
-        <motion.button
+        <motion.div
           drag
           dragMomentum={false}
-          whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
-          onClick={toggleMute}
-          className="fixed bottom-6 right-6 z-[100] p-4 bg-slate-900/90 hover:bg-slate-800 text-white rounded-full backdrop-blur-md border border-slate-700/50 shadow-2xl transition-colors cursor-grab active:cursor-grabbing"
-          aria-label={isMuted ? 'Unmute Background Video' : 'Mute Background Video'}
+          whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
+          className="fixed bottom-6 right-6 z-[100] flex items-center gap-3 p-3 bg-slate-900/90 text-white rounded-full backdrop-blur-md border border-slate-700/50 shadow-2xl transition-colors cursor-grab active:cursor-grabbing"
         >
-          {isMuted ? <VolumeX className="w-6 h-6 pointer-events-none" /> : <Volume2 className="w-6 h-6 pointer-events-none" />}
-        </motion.button>
+          <button
+            onClick={toggleMute}
+            className="p-1 hover:text-purple-400 transition-colors"
+            aria-label={isMuted ? 'Unmute Background Video' : 'Mute Background Video'}
+          >
+            {isMuted || volume === 0 ? <VolumeX className="w-6 h-6 pointer-events-none" /> : <Volume2 className="w-6 h-6 pointer-events-none" />}
+          </button>
+          
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={isMuted ? 0 : volume}
+            onChange={handleVolumeChange}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500 mr-2"
+          />
+        </motion.div>
       )}
     </div>
   )
