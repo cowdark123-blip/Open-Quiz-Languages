@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
+import { shuffleArray } from '@/lib/random'
 import { BookText, Loader2, Play, CheckCircle2, XCircle } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 
@@ -76,7 +77,7 @@ export default function ReadingPage() {
       const items = await fetchVocabItems(selectedSet)
       setVocabItems(items)
       
-      const words = items.map(item => item.term).slice(0, 10) // Limit to 10 words to not confuse AI
+      const words = shuffleArray(items).map(item => item.term).slice(0, 10)
 
       if (words.length === 0) {
         alert('Bộ từ vựng trống!')

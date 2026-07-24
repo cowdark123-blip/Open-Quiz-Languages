@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { playTTS } from '@/lib/tts'
-import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw } from 'lucide-react'
+import { shuffleArray } from '@/lib/random'
+import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 
 export default function DictationPage() {
@@ -19,6 +20,7 @@ export default function DictationPage() {
   const [diffResult, setDiffResult] = useState<{ word: string, status: 'correct' | 'wrong' | 'missing' }[]>([])
   const [targetBand, setTargetBand] = useState('co_ban')
   const [rate, setRate] = useState(1.0)
+  const [loadingAi, setLoadingAi] = useState(false)
 
   useEffect(() => {
     loadSets()
@@ -45,26 +47,59 @@ export default function DictationPage() {
     setLoading(false)
   }
 
-  const loadItems = async (setId: string) => {
+  const loadItems = async (setId: string, forceNew: boolean = false) => {
     setLoading(true)
-    const sessionData = await loadActiveSession('dictation', setId)
-    
-    if (sessionData && sessionData.items && sessionData.items.length > 0) {
-      setItems(sessionData.items)
-      setCurrentIndex(sessionData.currentIndex || 0)
-      setInput(sessionData.input || '')
-      setChecked(sessionData.checked || false)
-      setDiffResult(sessionData.diffResult || [])
-    } else {
-      const fetched = await fetchVocabItems(setId)
-      const withSentences = fetched.filter(item => item.example_sentence && item.example_sentence.trim() !== '')
-      setItems(withSentences)
-      setCurrentIndex(0)
-      setInput('')
-      setChecked(false)
-      setDiffResult([])
+    if (!forceNew) {
+      const sessionData = await loadActiveSession('dictation', setId)
+      if (sessionData && sessionData.items && sessionData.items.length > 0) {
+        setItems(sessionData.items)
+        setCurrentIndex(sessionData.currentIndex || 0)
+        setInput(sessionData.input || '')
+        setChecked(sessionData.checked || false)
+        setDiffResult(sessionData.diffResult || [])
+        setLoading(false)
+        return
+      }
     }
+    
+    setLoadingAi(true)
+    const fetched = await fetchVocabItems(setId)
+    if (fetched.length === 0) {
+      setItems([])
+      setLoading(false)
+      setLoadingAi(false)
+      return
+    }
+
+    const shuffled = shuffleArray(fetched).slice(0, 10)
+    const words = shuffled.map(i => i.term)
+
+    try {
+      const res = await fetch('/api/ai/dictation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words, targetBand })
+      })
+      const data = await res.json()
+      if (res.ok && data.success && data.sentences) {
+        const newItems = shuffled.map((item, idx) => ({
+          ...item,
+          example_sentence: data.sentences[idx] || item.example_sentence
+        }))
+        setItems(newItems)
+      } else {
+        setItems(shuffled)
+      }
+    } catch {
+      setItems(shuffled)
+    }
+
+    setCurrentIndex(0)
+    setInput('')
+    setChecked(false)
+    setDiffResult([])
     setLoading(false)
+    setLoadingAi(false)
   }
 
   const handleSetChange = (setId: string) => {
@@ -171,22 +206,32 @@ export default function DictationPage() {
           <p className="text-xs text-slate-400">Luyện nghe sâu với các câu ví dụ từ bộ từ vựng</p>
         </div>
         
-        <select 
-          className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none w-full md:w-64 focus:border-amber-500"
-          value={selectedSet}
-          onChange={(e) => handleSetChange(e.target.value)}
-        >
-          {sets.map(set => (
-            <option key={set.id} value={set.id}>{set.title}</option>
-          ))}
-        </select>
+        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+          <select 
+            className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none w-full md:w-64 focus:border-amber-500"
+            value={selectedSet}
+            onChange={(e) => handleSetChange(e.target.value)}
+          >
+            {sets.map(set => (
+              <option key={set.id} value={set.id}>{set.title}</option>
+            ))}
+          </select>
+          <button 
+            onClick={() => loadItems(selectedSet, true)}
+            disabled={loadingAi}
+            className="w-full md:w-auto px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-sm font-bold transition-all flex items-center justify-center gap-2"
+          >
+            {loadingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            Tạo bài mới 🔄
+          </button>
+        </div>
       </div>
 
-      {!loading && items.length === 0 ? (
+      {!loading && !loadingAi && items.length === 0 ? (
         <div className="glass-card p-10 text-center rounded-3xl border border-slate-800">
-          <p className="text-slate-400">Bộ từ vựng này chưa có câu ví dụ nào để luyện nghe chép.</p>
+          <p className="text-slate-400">Bộ từ vựng này chưa có đủ từ để luyện nghe chép.</p>
         </div>
-      ) : !loading && items.length > 0 ? (
+      ) : !loading && !loadingAi && items.length > 0 ? (
         <div className="glass-panel p-8 rounded-3xl border border-slate-800 space-y-8">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">

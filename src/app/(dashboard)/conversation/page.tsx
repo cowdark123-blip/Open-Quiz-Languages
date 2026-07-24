@@ -26,9 +26,13 @@ export default function ConversationPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
   const [targetBand, setTargetBand] = useState('co_ban')
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const recognitionRef = useRef<any>(null)
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     async function fetchBand() {
@@ -50,58 +54,99 @@ export default function ConversationPage() {
     loadHistory()
   }, [scenario])
 
-  const initSpeechRecognition = () => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition()
-        recognitionRef.current.continuous = true
-        recognitionRef.current.interimResults = true
-        recognitionRef.current.lang = 'en-US'
+  const toggleRecording = async () => {
+    if (isRecording) {
+      // Stop recording
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop()
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop())
+      }
+      setIsRecording(false)
+      if (timerRef.current) clearInterval(timerRef.current)
+    } else {
+      // Start recording
+      setInput('')
+      setRecordingTime(0)
+      audioChunksRef.current = []
+      
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 44100
+          } 
+        })
+        const mediaRecorder = new MediaRecorder(stream)
+        mediaRecorderRef.current = mediaRecorder
 
-        recognitionRef.current.onresult = (event: any) => {
-          let currentTranscript = ''
-          for (let i = 0; i < event.results.length; i++) {
-            currentTranscript += event.results[i][0].transcript
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data)
           }
-          setInput(currentTranscript)
         }
 
-        recognitionRef.current.onerror = (event: any) => {
-          console.error('Speech recognition error', event.error)
-          setIsRecording(false)
+        mediaRecorder.onstop = async () => {
+          if (audioChunksRef.current.length > 0) {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+            const audioData = await new Promise<string>((resolve) => {
+              const reader = new FileReader()
+              reader.onloadend = () => resolve((reader.result as string).split(',')[1])
+              reader.readAsDataURL(audioBlob)
+            })
+            
+            setLoading(true)
+            try {
+              const res = await fetch('/api/ai/stt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ audioData })
+              })
+              const data = await res.json()
+              if (res.ok && data.success && data.text) {
+                setInput(data.text)
+                await sendMessage(data.text)
+              }
+            } catch (err) {
+              console.error('STT Error', err)
+            } finally {
+              setLoading(false)
+            }
+          }
         }
 
-        recognitionRef.current.onend = () => {
-          setIsRecording(false)
-        }
+        mediaRecorder.start()
+        setIsRecording(true)
+        timerRef.current = setInterval(() => {
+          setRecordingTime(prev => prev + 1)
+        }, 1000)
+      } catch (err) {
+        console.error('Microphone error', err)
+        alert('Không thể truy cập Micro. Vui lòng cấp quyền.')
       }
     }
   }
 
   useEffect(() => {
-    initSpeechRecognition()
-  }, [])
-
-  const toggleRecording = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop()
-      setIsRecording(false)
-    } else {
-      setInput('')
-      recognitionRef.current?.start()
-      setIsRecording(true)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop()
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop())
+      }
     }
-  }
+  }, [isRecording])
 
   const playAudio = (text: string) => {
     playTTS(text)
   }
 
-  const sendMessage = async () => {
-    if (!input.trim()) return
+  const sendMessage = async (overrideInput?: string) => {
+    const textToSend = (overrideInput || input).trim()
+    if (!textToSend) return
 
-    const newMsg: Message = { role: 'user', content: input.trim() }
+    const newMsg: Message = { role: 'user', content: textToSend }
     const updatedMessages = [...messages, newMsg]
     setMessages(updatedMessages)
     setInput('')
@@ -249,10 +294,24 @@ export default function ConversationPage() {
       <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex items-center gap-2">
         <button 
           onClick={toggleRecording}
-          className={`w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+          className={`w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-all ${isRecording ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
         >
-          <Mic className="w-5 h-5" />
+          {isRecording ? (
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-3 bg-white rounded-full animate-pulse"></span>
+              <span className="w-1.5 h-5 bg-white rounded-full animate-pulse delay-75"></span>
+              <span className="w-1.5 h-3 bg-white rounded-full animate-pulse delay-150"></span>
+            </div>
+          ) : (
+            <Mic className="w-5 h-5" />
+          )}
         </button>
+        {isRecording && (
+          <div className="absolute -top-10 left-4 bg-red-500/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2 animate-fade-in">
+            <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+            Đang ghi âm... 00:{recordingTime.toString().padStart(2, '0')}
+          </div>
+        )}
         <input 
           type="text" 
           value={input}
@@ -263,7 +322,7 @@ export default function ConversationPage() {
           disabled={loading || isRecording}
         />
         <button 
-          onClick={sendMessage}
+          onClick={() => sendMessage()}
           disabled={!input.trim() || loading || isRecording}
           className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 transition-all"
         >

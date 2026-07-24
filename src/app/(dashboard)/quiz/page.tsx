@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, saveQuizResult, loadActiveSession, saveActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
+import { shuffleArray } from '@/lib/random'
 import { Trophy, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 
@@ -61,15 +62,6 @@ export default function QuizPage() {
     setLoading(false)
   }
 
-  const shuffleArray = (array: any[]) => {
-    const newArr = [...array]
-    for (let i = newArr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [newArr[i], newArr[j]] = [newArr[j], newArr[i]]
-    }
-    return newArr
-  }
-
   const handleStartQuiz = async () => {
     if (!selectedSet) return
     setLoading(true)
@@ -94,9 +86,9 @@ export default function QuizPage() {
     const generatedQuestions = shuffledItems.map(targetItem => {
       const wrongOptions = shuffleArray(items.filter(i => i.id !== targetItem.id))
         .slice(0, 3)
-        .map(i => i.vietnamese_translation)
+        .map(i => i.vietnamese_translation || 'Khác')
       
-      const options = shuffleArray([targetItem.vietnamese_translation, ...wrongOptions])
+      const options = shuffleArray([targetItem.vietnamese_translation || 'Chưa rõ', ...wrongOptions]) as string[]
       return { vocab: targetItem, options }
     })
 
