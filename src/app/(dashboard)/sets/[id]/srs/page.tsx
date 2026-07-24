@@ -8,7 +8,8 @@ import { calculateSM2, getSM2IntervalPreviews, formatInterval, SRSGrade } from '
 import { fetchDueSRSItems, saveSRSProgress } from '@/lib/supabase/data-service'
 import { playTTS } from '@/lib/tts'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
-import { Volume2, ArrowLeft, RotateCcw, Brain, Trophy, Keyboard, Eye, Loader2, CheckCircle2 } from 'lucide-react'
+import { Volume2, ArrowLeft, RotateCcw, Brain, Trophy, Keyboard, Eye, Loader2, CheckCircle2, Star, CheckCircle } from 'lucide-react'
+import { updateVocabItem } from '@/lib/supabase/data-service'
 
 export default function SetSRSPage({ params }: { params: { id: string } }) {
   const [items, setItems] = useState<(VocabItem & { srsProgress?: UserSRSProgress; setTitle?: string })[]>([])
@@ -18,6 +19,16 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
   const [reviewedCount, setReviewedCount] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [toast, setToast] = useState('')
+
+  const toggleStar = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const item = items[currentIndex]
+    if (!item) return
+    const newStarred = !item.is_starred
+    setItems(prev => prev.map(c => c.id === item.id ? { ...c, is_starred: newStarred } : c))
+    await updateVocabItem(item.id, { is_starred: newStarred })
+  }
 
   const loadDueItems = useCallback(async () => {
     setLoading(true)
@@ -70,23 +81,38 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
           repetition: result.repetition,
           ease_factor: result.easeFactor,
           next_review_date: result.nextReviewDate,
+          status: result.repetition >= 4 ? 'mastered' : 'learning'
         })
+        
+        // Update local state IMMEDIATELY for the UI to show '🟢 Đã thành thạo' if mastered
+        if (result.repetition >= 4) {
+          setItems(prevItems => prevItems.map(c => 
+            c.id === currentItem.id 
+              ? { ...c, srsProgress: { ...c.srsProgress, repetition: result.repetition, interval: result.interval, status: 'mastered' } as any }
+              : c
+          ))
+          setToast(`🎉 Đã đánh dấu thành thạo từ "${currentItem.term}"!`)
+          setTimeout(() => setToast(''), 3000)
+        }
+
       } catch (err: any) {
         setErrorMsg(err.message || 'Lưu tiến trình thất bại. Vui lòng thử lại.')
         return
       }
 
-      setReviewedCount((prev) => prev + 1)
-      setIsAnswerRevealed(false)
+      setTimeout(() => {
+        setReviewedCount((prev) => prev + 1)
+        setIsAnswerRevealed(false)
 
-      const newItems = items.filter(i => i.id !== currentItem.id)
-      setItems(newItems)
+        const newItems = items.filter(i => i.id !== currentItem.id)
+        setItems(newItems)
 
-      if (newItems.length === 0) {
-        setIsCompleted(true)
-      } else {
-        setCurrentIndex(prev => prev >= newItems.length ? 0 : prev)
-      }
+        if (newItems.length === 0) {
+          setIsCompleted(true)
+        } else {
+          setCurrentIndex(prev => prev >= newItems.length ? 0 : prev)
+        }
+      }, result.repetition >= 4 ? 600 : 0) // Delay transition if mastered so they can see the tag change
     },
     [currentIndex, items, currentSM2, currentItem]
   )
@@ -171,8 +197,35 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
   const totalItems = items.length + reviewedCount
   const progressPercent = totalItems > 0 ? Math.round((reviewedCount / totalItems) * 100) : 100
 
+  const isMastered = currentItem?.srsProgress?.status === 'mastered' || (currentItem?.srsProgress?.repetition || 0) >= 4
+  const isLearning = (currentItem?.srsProgress?.repetition || 0) > 0 && !isMastered
+  const isNew = !currentItem?.srsProgress
+  const isDuplicate = items.some(c => c.id !== currentItem?.id && 
+    ((c.term.toLowerCase() === currentItem?.term.toLowerCase()) || 
+     (c.vietnamese_translation && currentItem?.vietnamese_translation && c.vietnamese_translation.toLowerCase() === currentItem.vietnamese_translation.toLowerCase()))
+  )
+
+  const StatusBadges = () => (
+    <div className="flex flex-wrap gap-2 justify-center mt-2">
+      {isNew && <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase">🔴 Chưa học</span>}
+      {isLearning && <span className="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-bold border border-yellow-500/20 text-[10px] uppercase">🟡 Đang học (Lần {currentItem?.srsProgress?.repetition})</span>}
+      {isMastered && <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px] uppercase">🟢 Đã thành thạo</span>}
+      {currentItem?.is_starred && <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20 text-[10px] uppercase">⭐ Đã gắn sao</span>}
+      {isDuplicate && <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 font-bold border border-orange-500/20 text-[10px] uppercase">⚠️ Trùng</span>}
+    </div>
+  )
+
   return (
-    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4 relative">
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-5 duration-300">
+          <div className="bg-emerald-500/90 text-white px-4 py-2 rounded-xl shadow-lg border border-emerald-400/50 text-sm font-bold flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" />
+            {toast}
+          </div>
+        </div>
+      )}
+
       {/* Top Controls Header */}
       <div className="flex items-center justify-between">
         <Link
@@ -223,18 +276,27 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
       <div className="space-y-6">
         {/* Main SRS Review Card */}
         <div className="glass-panel p-8 rounded-3xl border border-purple-500/30 shadow-2xl relative space-y-6 min-h-[380px] flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
-              {currentItem.setTitle || 'Bộ Từ Vựng'}
-            </span>
-            <button
-              onClick={(e) => playAudio(currentItem.term, e)}
-              className="p-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all flex items-center gap-1.5"
-            >
-              <Volume2 className="w-4 h-4 text-purple-400" />
-              <span>Phát âm (Phím A)</span>
-            </button>
+          <div className="flex items-center justify-between relative">
+            <div className="flex flex-col items-start gap-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                {currentItem.setTitle || 'Bộ Từ Vựng'}
+              </span>
+            </div>
+            
+            <div className="flex gap-2 absolute top-0 right-0 z-10">
+              <button onClick={toggleStar} className="p-2 rounded-full hover:bg-slate-800 transition-colors">
+                <Star className={`w-5 h-5 ${currentItem?.is_starred ? 'text-amber-400 fill-amber-400' : 'text-slate-500'}`} />
+              </button>
+              <button
+                onClick={(e) => playAudio(currentItem.term, e)}
+                className="p-2 rounded-full text-purple-300 hover:bg-purple-500/10"
+                title="Phát âm (Phím A / S)"
+              >
+                <Volume2 className="w-5 h-5" />
+              </button>
+            </div>
           </div>
+          <StatusBadges />
 
           {/* Prompt & Term Section */}
           <div className="text-center space-y-4 my-auto">

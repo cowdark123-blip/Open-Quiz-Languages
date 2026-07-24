@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import NavigationGuard from '@/components/NavigationGuard'
-import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress } from '@/lib/supabase/data-service'
+import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem } from '@/lib/supabase/data-service'
 import { VocabItem, VocabSet } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
-import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard, Loader2 } from 'lucide-react'
+import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard, Loader2, Star } from 'lucide-react'
 
 export default function FlashcardsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -24,6 +24,16 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const [masteredCount, setMasteredCount] = useState(0)
   const [reviewCount, setReviewCount] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [toast, setToast] = useState('')
+
+  const toggleStar = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const card = cards[currentIndex]
+    if (!card) return
+    const newStarred = !card.is_starred
+    setCards(prev => prev.map(c => c.id === card.id ? { ...c, is_starred: newStarred } : c))
+    await updateVocabItem(card.id, { is_starred: newStarred })
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -54,29 +64,59 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   }, [])
 
   const handleNextCard = useCallback(async (known: boolean) => {
+    if (!currentCard) return
+
     if (known) {
       setMasteredCount((prev) => prev + 1)
-      if (currentCard) {
-        await saveSRSProgress({
-          item_id: currentCard.id,
-          repetition: 4,
-          interval: 21,
-          status: 'mastered'
+      
+      const nextDate = new Date()
+      nextDate.setDate(nextDate.getDate() + 21)
+
+      // Update local state IMMEDIATELY for the UI to show '🟢 Đã thành thạo'
+      setCards(prevCards => prevCards.map(c => 
+        c.id === currentCard.id 
+          ? { ...c, srsProgress: { ...c.srsProgress, repetition: 4, interval: 21, status: 'mastered' } as any }
+          : c
+      ))
+
+      await saveSRSProgress({
+        item_id: currentCard.id,
+        repetition: 4,
+        interval: 21,
+        status: 'mastered',
+        next_review_date: nextDate.toISOString()
+      })
+
+      setToast(`🎉 Đã đánh dấu thành thạo từ "${currentCard.term}"!`)
+      setTimeout(() => setToast(''), 3000)
+
+      setTimeout(() => {
+        setIsFlipped(false)
+        setCards(prevCards => {
+          const newCards = prevCards.filter(c => c.id !== currentCard.id)
+          if (newCards.length === 0) {
+            setIsCompleted(true)
+            deleteActiveSession('flashcards', setId)
+          } else {
+            if (currentIndex >= newCards.length) {
+              setCurrentIndex(0)
+            }
+          }
+          return newCards
         })
-      }
+      }, 600)
     } else {
       setReviewCount((prev) => prev + 1)
-    }
+      setIsFlipped(false)
 
-    setIsFlipped(false)
-
-    if (currentIndex + 1 < cards.length) {
-      setCurrentIndex((prev) => prev + 1)
-    } else {
-      setIsCompleted(true)
-      deleteActiveSession('flashcards', setId)
+      if (currentIndex + 1 < cards.length) {
+        setCurrentIndex((prev) => prev + 1)
+      } else {
+        setIsCompleted(true)
+        deleteActiveSession('flashcards', setId)
+      }
     }
-  }, [currentIndex, cards.length, currentCard, setId])
+  }, [currentIndex, cards, currentCard, setId])
 
   const handleRestart = () => {
     setCurrentIndex(0)
@@ -150,7 +190,25 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  const progressPercent = Math.round(((currentIndex + (isCompleted ? 1 : 0)) / cards.length) * 100)
+  const progressPercent = Math.round(((cards.length > 0 ? (isCompleted ? 1 : currentIndex / cards.length) : 1)) * 100)
+
+  const isMastered = currentCard?.srsProgress?.status === 'mastered' || (currentCard?.srsProgress?.repetition || 0) >= 4
+  const isLearning = (currentCard?.srsProgress?.repetition || 0) > 0 && !isMastered
+  const isNew = !currentCard?.srsProgress
+  const isDuplicate = cards.some(c => c.id !== currentCard.id && 
+    ((c.term.toLowerCase() === currentCard.term.toLowerCase()) || 
+     (c.vietnamese_translation && currentCard.vietnamese_translation && c.vietnamese_translation.toLowerCase() === currentCard.vietnamese_translation.toLowerCase()))
+  )
+
+  const StatusBadges = () => (
+    <div className="flex flex-wrap gap-2 justify-center mt-2">
+      {isNew && <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase">🔴 Chưa học</span>}
+      {isLearning && <span className="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-bold border border-yellow-500/20 text-[10px] uppercase">🟡 Đang học (Lần {currentCard.srsProgress?.repetition})</span>}
+      {isMastered && <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px] uppercase">🟢 Đã thành thạo</span>}
+      {currentCard.is_starred && <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20 text-[10px] uppercase">⭐ Đã gắn sao</span>}
+      {isDuplicate && <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 font-bold border border-orange-500/20 text-[10px] uppercase">⚠️ Trùng</span>}
+    </div>
+  )
 
   return (
     <NavigationGuard 
@@ -158,7 +216,16 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       onSaveAndExit={handleSaveAndExit}
       onDiscardAndExit={handleDiscardAndExit}
     >
-    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4 relative">
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-5 duration-300">
+          <div className="bg-emerald-500/90 text-white px-4 py-2 rounded-xl shadow-lg border border-emerald-400/50 text-sm font-bold flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" />
+            {toast}
+          </div>
+        </div>
+      )}
+
       {/* Top Header Controls */}
       <div className="flex items-center justify-between">
         <Link
@@ -207,16 +274,19 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
                   isFlipped ? 'pointer-events-none' : ''
                 }`}
               >
-                <div className="w-full flex items-center justify-between text-xs text-slate-400">
-                  <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-300 font-bold border border-purple-500/20">
-                    Mặt Trước
-                  </span>
-                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Nhấn [Space] để lật
-                  </span>
+                <div className="w-full flex items-center justify-between text-xs text-slate-400 relative">
+                  <div className="flex flex-col items-start gap-1">
+                    <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-300 font-bold border border-purple-500/20">
+                      Mặt Trước
+                    </span>
+                  </div>
+                  <button onClick={toggleStar} className="p-2 rounded-full hover:bg-slate-800 transition-colors absolute top-0 right-0 z-10">
+                    <Star className={`w-5 h-5 ${currentCard.is_starred ? 'text-amber-400 fill-amber-400' : 'text-slate-500'}`} />
+                  </button>
                 </div>
+                <StatusBadges />
 
-                <div className="space-y-4 my-auto">
+                <div className="space-y-4 my-auto relative w-full">
                   <h2 className="text-4xl md:text-5xl font-black text-white tracking-wide">
                     {currentCard.term}
                   </h2>
@@ -241,20 +311,28 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
                   !isFlipped ? 'pointer-events-none' : ''
                 }`}
               >
-                <div className="w-full flex items-center justify-between text-xs text-slate-400 mb-4">
-                  <span className="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 font-bold border border-cyan-500/20">
-                    Định Nghĩa & Luyện Phát Âm AI
-                  </span>
-                  <button
-                    onClick={(e) => playAudio(currentCard.term, e)}
-                    className="p-1.5 rounded-lg text-purple-300 hover:bg-purple-500/10"
-                    title="Nghe lại (Phím A / S)"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
+                <div className="w-full flex items-center justify-between text-xs text-slate-400 mb-4 relative">
+                  <div className="flex flex-col items-start gap-1">
+                    <span className="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 font-bold border border-cyan-500/20">
+                      Định Nghĩa & Luyện Phát Âm AI
+                    </span>
+                  </div>
+                  <div className="flex gap-2 absolute top-0 right-0 z-10">
+                    <button onClick={toggleStar} className="p-2 rounded-full hover:bg-slate-800 transition-colors">
+                      <Star className={`w-5 h-5 ${currentCard.is_starred ? 'text-amber-400 fill-amber-400' : 'text-slate-500'}`} />
+                    </button>
+                    <button
+                      onClick={(e) => playAudio(currentCard.term, e)}
+                      className="p-2 rounded-full text-purple-300 hover:bg-purple-500/10"
+                      title="Nghe lại (Phím A / S)"
+                    >
+                      <Volume2 className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
+                <StatusBadges />
 
-                <div className="space-y-4 text-left w-full my-auto">
+                <div className="space-y-4 text-left w-full my-auto mt-4">
                   <div>
                     <span className="text-[10px] uppercase font-bold text-slate-400">Định nghĩa tiếng Anh</span>
                     <p className="text-base font-bold text-white mt-0.5">{currentCard.definition}</p>
