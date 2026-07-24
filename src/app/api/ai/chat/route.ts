@@ -61,8 +61,13 @@ You MUST respond in strict JSON format:
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
     const result = await model.generateContent(fullPrompt)
-    const text = result.response.text().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-    const parsed = JSON.parse(text)
+    let text = result.response.text().trim()
+    // Strip markdown code fences if present
+    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    // Extract first JSON object in case there's extra text
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error('No JSON in response')
+    const parsed = JSON.parse(jsonMatch[0])
 
     return NextResponse.json(parsed)
   } catch (error) {
