@@ -10,7 +10,7 @@ import { VocabItem, VocabSet } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import * as React from 'react'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
-import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard, Loader2, Star } from 'lucide-react'
+import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard, Loader2, Star, Layers, Flame, BookOpen, CheckCircle2, Shuffle, ArrowDownAZ, Clock, History, SlidersHorizontal, ListFilter } from 'lucide-react'
 
 export default function FlashcardsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -28,6 +28,8 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const [toast, setToast] = useState('')
   const [pendingSession, setPendingSession] = useState<any>(null)
   const pendingSaves = React.useRef<Promise<any>[]>([])
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const isSavedRef = React.useRef(false)
   
   const [allCards, setAllCards] = useState<VocabItem[]>([])
   const [isSetupComplete, setIsSetupComplete] = useState(false)
@@ -51,12 +53,14 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       setCurrentSet(setObj)
       setAllCards(itemsList)
 
+      setIsLoadingSession(true)
       const sessionData = await loadActiveSession('flashcards', setId)
       if (sessionData && sessionData.cards && sessionData.cards.length > 0) {
         setPendingSession(sessionData)
       } else {
         setPendingSession(null)
       }
+      setIsLoadingSession(false)
       setLoading(false)
     }
     loadData()
@@ -161,6 +165,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   }
 
   const handleSaveAndExit = async () => {
+    isSavedRef.current = true
     if (pendingSaves.current.length > 0) {
       await Promise.allSettled(pendingSaves.current)
     }
@@ -174,12 +179,21 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   }
 
   const handleDiscardAndExit = async () => {
+    isSavedRef.current = true
     if (pendingSaves.current.length > 0) {
       await Promise.allSettled(pendingSaves.current)
     }
     await deleteActiveSession('flashcards', setId)
     router.push(`/sets/${setId}`)
   }
+
+  useEffect(() => {
+    return () => {
+      if (!isSavedRef.current && currentIndex > 0 && !isCompleted) {
+        // Cleanup if unmounted unexpectedly
+      }
+    }
+  }, [currentIndex, isCompleted, setId])
 
   // Keyboard Shortcuts Handler
   useEffect(() => {
@@ -208,11 +222,11 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isCompleted, loading, handleNextCard, currentCard, playAudio])
 
-  if (loading) {
+  if (loading || isLoadingSession) {
     return (
       <div className="py-16 text-center text-slate-400 flex flex-col items-center gap-3">
         <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-        <span className="text-xs">Đang tải thẻ Flashcard 3D từ Supabase...</span>
+        <span className="text-xs">Đang kiểm tra tiến trình đã lưu...</span>
       </div>
     )
   }
@@ -343,45 +357,93 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
             <p className="text-sm text-slate-400">Tùy chỉnh thẻ Flashcard bạn muốn ôn tập hôm nay</p>
           </div>
           
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <label className="text-sm font-bold text-slate-300">Lọc từ vựng</label>
+          <div className="space-y-8">
+            <div className="space-y-4 relative">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-purple-500/20">
+                  <ListFilter className="w-4 h-4 text-purple-400" />
+                </div>
+                <label className="text-sm font-bold text-slate-200">Lọc từ vựng</label>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
-                  { id: 'all', label: 'Tất cả' },
-                  { id: 'new', label: '🔴 Chưa học' },
-                  { id: 'learning', label: '🟡 Đang học' },
-                  { id: 'mastered', label: '🟢 Đã thuộc' },
-                  { id: 'starred', label: '⭐ Đã gắn sao' }
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setFilterType(opt.id)}
-                    className={`p-3 rounded-xl text-xs font-bold transition-all border ${filterType === opt.id ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                  { id: 'all', label: 'Tất cả', icon: Layers, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                  { id: 'new', label: 'Chưa học', icon: Flame, color: 'text-red-400', bg: 'bg-red-500/10' },
+                  { id: 'learning', label: 'Đang học', icon: BookOpen, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+                  { id: 'mastered', label: 'Đã thuộc', icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                  { id: 'starred', label: 'Đã gắn sao', icon: Star, color: 'text-amber-400', bg: 'bg-amber-500/10' }
+                ].map(opt => {
+                  const Icon = opt.icon
+                  const isActive = filterType === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => setFilterType(opt.id)}
+                      className={`relative overflow-hidden group p-4 rounded-2xl text-left transition-all duration-300 border ${
+                        isActive 
+                        ? 'bg-purple-600/20 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.15)] scale-[1.02]' 
+                        : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80 hover:border-slate-600'
+                      }`}
+                    >
+                      {isActive && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 to-transparent opacity-50" />
+                      )}
+                      <div className="flex items-center gap-3 relative z-10">
+                        <div className={`p-2 rounded-xl ${isActive ? 'bg-purple-500/30' : opt.bg} transition-colors`}>
+                          <Icon className={`w-5 h-5 ${isActive ? 'text-purple-300' : opt.color}`} />
+                        </div>
+                        <span className={`text-sm font-bold ${isActive ? 'text-purple-100' : 'text-slate-300 group-hover:text-white'}`}>
+                          {opt.label}
+                        </span>
+                      </div>
+                      {isActive && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]" />
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-sm font-bold text-slate-300">Thứ tự hiển thị</label>
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent my-6" />
+
+            <div className="space-y-4 relative">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-cyan-500/20">
+                  <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+                </div>
+                <label className="text-sm font-bold text-slate-200">Thứ tự hiển thị</label>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { id: 'shuffle', label: '🔀 Ngẫu nhiên' },
-                  { id: 'az', label: 'A-Z' },
-                  { id: 'newest', label: 'Mới nhất' },
-                  { id: 'oldest', label: 'Cũ nhất' }
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setSortType(opt.id)}
-                    className={`p-3 rounded-xl text-xs font-bold transition-all border ${sortType === opt.id ? 'bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                  { id: 'shuffle', label: 'Ngẫu nhiên', icon: Shuffle },
+                  { id: 'az', label: 'A-Z', icon: ArrowDownAZ },
+                  { id: 'newest', label: 'Mới nhất', icon: Clock },
+                  { id: 'oldest', label: 'Cũ nhất', icon: History }
+                ].map(opt => {
+                  const Icon = opt.icon
+                  const isActive = sortType === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => setSortType(opt.id)}
+                      className={`relative overflow-hidden group p-3 rounded-2xl transition-all duration-300 border flex flex-col items-center gap-2 text-center ${
+                        isActive 
+                        ? 'bg-cyan-600/20 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.15)] scale-[1.05]' 
+                        : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className={`p-2.5 rounded-xl transition-all duration-300 ${isActive ? 'bg-cyan-500/30 rotate-12 scale-110' : 'bg-slate-700/50 group-hover:scale-110'}`}>
+                        <Icon className={`w-5 h-5 ${isActive ? 'text-cyan-300' : 'text-slate-400 group-hover:text-white'}`} />
+                      </div>
+                      <span className={`text-xs font-bold ${isActive ? 'text-cyan-100' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                        {opt.label}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>

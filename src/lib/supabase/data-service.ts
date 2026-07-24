@@ -157,6 +157,34 @@ export async function fetchVocabItems(setId: string): Promise<VocabItem[]> {
   }
 }
 
+export async function fetchAllUserVocabItems(): Promise<VocabItem[]> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    // Get all user sets (owned or public that they might use)
+    // For exactness, just owned sets. But let's fetch what they have access to.
+    const { data: userSets } = await supabase
+      .from('vocab_sets')
+      .select('id')
+      .or(`user_id.eq.${user.id},is_public.eq.true`)
+      
+    if (!userSets || userSets.length === 0) return []
+    const setIds = userSets.map(s => s.id)
+
+    const { data, error } = await supabase
+      .from('vocab_items')
+      .select('*')
+      .in('set_id', setIds)
+
+    if (error || !data) return []
+    return data as VocabItem[]
+  } catch {
+    return []
+  }
+}
+
 export async function fetchDueSRSItems(setId?: string): Promise<(VocabItem & { srsProgress?: UserSRSProgress })[]> {
   const supabase = createClient()
   try {

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Brain, LayoutDashboard, Layers, Sparkles, LogOut, BookOpen, Settings, Home } from 'lucide-react'
 import StreakWidget from '@/components/StreakWidget'
+import { VocabProvider } from '@/contexts/VocabContext'
 
 export default function DashboardLayout({
   children,
@@ -170,8 +171,10 @@ export default function DashboardLayout({
         </header>
 
         {/* Main Content Viewport */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-          {children}
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto relative">
+          <VocabProvider>
+            {children}
+          </VocabProvider>
         </main>
       </div>
     </div>

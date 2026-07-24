@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import { shuffleArray } from '@/lib/random'
 import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
+import InteractiveText from '@/components/InteractiveText'
 
 export default function DictationPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -22,6 +23,8 @@ export default function DictationPage() {
   const [rate, setRate] = useState(1.0)
   const [loadingAi, setLoadingAi] = useState(false)
   const [pendingSession, setPendingSession] = useState<any>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const isSavedRef = React.useRef(false)
 
   useEffect(() => {
     loadSets()
@@ -44,12 +47,14 @@ export default function DictationPage() {
     if (userSets.length > 0) {
       setSelectedSet(userSets[0].id)
       checkSession(userSets[0].id)
+    } else {
+      setIsLoadingSession(false)
     }
     setLoading(false)
   }
 
   const checkSession = async (setId: string) => {
-    setLoading(true)
+    setIsLoadingSession(true)
     const sessionData = await loadActiveSession('dictation', setId)
     if (sessionData && sessionData.items && sessionData.items.length > 0) {
       setPendingSession(sessionData)
@@ -57,7 +62,7 @@ export default function DictationPage() {
       setPendingSession(null)
       setItems([]) // Wait for explicit start
     }
-    setLoading(false)
+    setIsLoadingSession(false)
   }
 
   const loadItems = async (setId: string, forceNew: boolean = false) => {
@@ -169,6 +174,7 @@ export default function DictationPage() {
   }
 
   const handleSaveAndExit = async () => {
+    isSavedRef.current = true
     await saveActiveSession('dictation', selectedSet, {
       items,
       currentIndex,
@@ -180,14 +186,24 @@ export default function DictationPage() {
   }
 
   const handleDiscardAndExit = async () => {
+    isSavedRef.current = true
     await deleteActiveSession('dictation', selectedSet)
     window.history.go(-2)
   }
 
-  if (loading && sets.length === 0) {
+  useEffect(() => {
+    return () => {
+      if (!isSavedRef.current && items.length > 0 && currentIndex < items.length) {
+        // Cleanup if needed
+      }
+    }
+  }, [items, currentIndex, selectedSet])
+
+  if ((loading && sets.length === 0) || isLoadingSession) {
     return (
-      <div className="flex justify-center items-center py-20">
+      <div className="flex flex-col justify-center items-center py-20 space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <p className="text-slate-400 text-sm">Đang kiểm tra tiến trình đã lưu...</p>
       </div>
     )
   }
@@ -340,7 +356,9 @@ export default function DictationPage() {
                   <div className="text-xs text-emerald-500 mb-1 font-semibold flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Câu gốc chính xác:
                   </div>
-                  <p className="text-slate-200">{items[currentIndex].example_sentence}</p>
+                  <div className="text-slate-200">
+                    <InteractiveText text={items[currentIndex].example_sentence || ''} />
+                  </div>
                 </div>
 
                 <div className="flex gap-3">

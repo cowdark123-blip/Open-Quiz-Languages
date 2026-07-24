@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Mic, Send, Bot, User, Loader2, Sparkles, Volume2, RotateCcw } from 'lucide-react'
 import { getCurrentUserProfile, loadConversationHistory, saveConversationHistory, deleteConversationHistory, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { playTTS } from '@/lib/tts'
+import InteractiveText from '@/components/InteractiveText'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -254,7 +255,9 @@ export default function ConversationPage() {
                 {msg.role === 'user' ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-white" />}
               </div>
               <div className={`px-4 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-purple-600 text-white rounded-br-none' : 'glass-card border-slate-700 text-slate-200 rounded-bl-none'}`}>
-                <p className="text-sm">{msg.content}</p>
+                <div className="text-sm">
+                  {msg.role === 'assistant' ? <InteractiveText text={msg.content} /> : msg.content}
+                </div>
                 {msg.role === 'assistant' && (
                   <button onClick={() => playAudio(msg.content)} className="mt-2 text-blue-400 hover:text-blue-300">
                     <Volume2 className="w-4 h-4" />

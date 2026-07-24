@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { shuffleArray } from '@/lib/random'
 import { BookText, Loader2, Play, CheckCircle2, XCircle } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
+import InteractiveText from '@/components/InteractiveText'
 
 export default function ReadingPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -21,7 +22,8 @@ export default function ReadingPage() {
   const [submitted, setSubmitted] = useState(false)
   const [pendingSession, setPendingSession] = useState<any>(null)
 
-  const [activeWord, setActiveWord] = useState<VocabItem | null>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const isSavedRef = React.useRef(false)
 
   useEffect(() => {
     loadSets()
@@ -46,20 +48,16 @@ export default function ReadingPage() {
   useEffect(() => {
     const loadSession = async () => {
       if (!selectedSet) return
-      setLoading(true)
+      setIsLoadingSession(true)
       const sessionData = await loadActiveSession('reading', selectedSet)
       if (sessionData && sessionData.article) {
         setPendingSession(sessionData)
       } else {
         setPendingSession(null)
-        setArticle('')
-        setQuestions([])
-        setAnswers({})
-        setSubmitted(false)
       }
       const items = await fetchVocabItems(selectedSet)
       setVocabItems(items)
-      setLoading(false)
+      setIsLoadingSession(false)
     }
     loadSession()
   }, [selectedSet])
@@ -112,44 +110,17 @@ export default function ReadingPage() {
     }
   }
 
-  const handleWordClick = (wordText: string) => {
-    const cleanWord = wordText.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"").toLowerCase()
-    const found = vocabItems.find(item => item.term.toLowerCase() === cleanWord)
-    if (found) {
-      setActiveWord(found)
-    } else {
-      setActiveWord(null)
-    }
-  }
-
   const renderArticle = () => {
     if (!article) return null
-    const wordsInArticle = article.split(' ')
     return (
       <div className="leading-relaxed text-slate-300 text-lg">
-        {wordsInArticle.map((w, idx) => {
-          const cleanW = w.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"").toLowerCase()
-          const isVocab = vocabItems.some(item => item.term.toLowerCase() === cleanW)
-          return (
-            <span key={idx}>
-              {isVocab ? (
-                <span 
-                  onClick={() => handleWordClick(w)}
-                  className="font-bold text-cyan-400 cursor-pointer hover:underline"
-                >
-                  {w}
-                </span>
-              ) : (
-                w
-              )}{' '}
-            </span>
-          )
-        })}
+        <InteractiveText text={article} className="leading-relaxed" containerContext={article} />
       </div>
     )
   }
 
   const handleSaveAndExit = async () => {
+    isSavedRef.current = true
     await saveActiveSession('reading', selectedSet, {
       article,
       questions,
@@ -160,8 +131,26 @@ export default function ReadingPage() {
   }
 
   const handleDiscardAndExit = async () => {
+    isSavedRef.current = true
     await deleteActiveSession('reading', selectedSet)
     window.history.go(-2)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (!isSavedRef.current && article !== '' && !submitted) {
+        // Cleanup if unmounted unexpectedly
+      }
+    }
+  }, [article, submitted, selectedSet])
+
+  if ((loading && sets.length === 0) || isLoadingSession) {
+    return (
+      <div className="flex flex-col justify-center items-center py-20 space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        <p className="text-slate-400 text-sm">Đang kiểm tra tiến trình đã lưu...</p>
+      </div>
+    )
   }
 
   return (
@@ -206,8 +195,8 @@ export default function ReadingPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="space-y-6">
           {pendingSession ? (
             <div className="glass-panel p-8 rounded-3xl border border-cyan-500/30 text-center space-y-4 animate-in fade-in">
               <h3 className="text-xl font-bold text-white">Phát hiện bài tập đang làm dở</h3>
@@ -314,35 +303,6 @@ export default function ReadingPage() {
                <p className="text-slate-400">Bấm nút <span className="text-cyan-400 font-bold">Tạo Bài Đọc</span> để AI viết một bài báo ngắn bằng tiếng Anh dựa trên bộ từ vựng của bạn.</p>
             </div>
           )}
-        </div>
-
-        <div className="md:col-span-1">
-          <div className="sticky top-24">
-            {activeWord ? (
-              <div className="glass-card p-6 rounded-3xl border border-cyan-500/30 bg-cyan-950/10 shadow-xl shadow-cyan-900/20">
-                <div className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-1">Tra Từ Trực Tiếp</div>
-                <h3 className="text-2xl font-black text-white">{activeWord.term}</h3>
-                <p className="text-sm font-mono text-slate-400 mb-4">{activeWord.ipa}</p>
-                
-                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 mb-4">
-                  <p className="text-sm text-white">{activeWord.definition}</p>
-                  <p className="text-xs text-slate-400 mt-1">{activeWord.vietnamese_translation}</p>
-                </div>
-                
-                {activeWord.example_sentence && (
-                  <div>
-                    <span className="text-xs text-slate-500 uppercase font-semibold">Ví dụ gốc</span>
-                    <p className="text-sm text-slate-300 italic">"{activeWord.example_sentence}"</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-center opacity-50">
-                <BookText className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <p className="text-sm text-slate-400">Nhấp vào từ vựng được tô màu trong bài đọc để xem nghĩa chi tiết.</p>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

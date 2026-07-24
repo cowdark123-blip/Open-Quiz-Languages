@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { PenTool, CheckCircle2, XCircle, Loader2, Play, Sparkles } from 'lucide-react'
 import { getCurrentUserProfile, saveActiveSession, loadActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import NavigationGuard from '@/components/NavigationGuard'
+import InteractiveText from '@/components/InteractiveText'
 
 const TOPICS = [
   'Các thì trong tiếng Anh (Tenses)',
@@ -30,6 +31,8 @@ export default function GrammarPage() {
   const [submitted, setSubmitted] = useState(false)
   const [targetBand, setTargetBand] = useState('co_ban')
   const [pendingSession, setPendingSession] = useState<any>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const isSavedRef = React.useRef(false)
 
   useEffect(() => {
     async function fetchBand() {
@@ -39,11 +42,15 @@ export default function GrammarPage() {
     fetchBand()
 
     const loadSession = async () => {
+      setIsLoadingSession(true)
       const sessionData = await loadActiveSession('grammar', 'default')
       if (sessionData && sessionData.practiceQuestions && sessionData.practiceQuestions.length > 0) {
         setPendingSession(sessionData)
         setActiveTab('practice')
+      } else {
+        setPendingSession(null)
       }
+      setIsLoadingSession(false)
     }
     loadSession()
   }, [])
@@ -109,6 +116,7 @@ export default function GrammarPage() {
   }
 
   const handleSaveAndExit = async () => {
+    isSavedRef.current = true
     if (practiceQuestions.length > 0 && !submitted) {
       await saveActiveSession('grammar', 'default', {
         practiceQuestions,
@@ -121,8 +129,26 @@ export default function GrammarPage() {
   }
 
   const handleDiscardAndExit = async () => {
+    isSavedRef.current = true
     await deleteActiveSession('grammar', 'default')
     window.history.go(-2)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (!isSavedRef.current && practiceQuestions.length > 0 && !submitted) {
+        // Cleanup if unmounted unexpectedly
+      }
+    }
+  }, [practiceQuestions, submitted, selectedTopic])
+
+  if (isLoadingSession) {
+    return (
+      <div className="flex flex-col justify-center items-center py-20 space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+        <p className="text-slate-400 text-sm">Đang kiểm tra tiến trình đã lưu...</p>
+      </div>
+    )
   }
 
   return (
@@ -202,7 +228,9 @@ export default function GrammarPage() {
                   </div>
                   <div className="p-4 bg-emerald-950/20 border border-emerald-900/30 rounded-xl">
                     <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-1 block">Câu sửa hoàn chỉnh</span>
-                    <p className="text-emerald-400 font-medium text-lg">{checkResult.correctedText}</p>
+                    <div className="text-emerald-400 font-medium text-lg">
+                      <InteractiveText text={checkResult.correctedText || ''} />
+                    </div>
                   </div>
                 </div>
               )}
@@ -266,7 +294,9 @@ export default function GrammarPage() {
               <div className="space-y-8">
                 {practiceQuestions.map((q, idx) => (
                   <div key={idx} className="space-y-3">
-                    <p className="text-white font-medium text-lg">{idx + 1}. {q.question}</p>
+                    <div className="text-white font-medium text-lg">
+                      {idx + 1}. <InteractiveText text={q.question} />
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {q.options.map((opt: string, i: number) => {
                         const isSelected = answers[idx] === opt

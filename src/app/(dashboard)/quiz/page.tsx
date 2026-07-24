@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, saveQuizResult, loadActiveSession, saveActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { shuffleArray } from '@/lib/random'
@@ -25,6 +25,8 @@ export default function QuizPage() {
   const [score, setScore] = useState(0)
   const [saving, setSaving] = useState(false)
   const [pendingSession, setPendingSession] = useState<any>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const isSavedRef = React.useRef(false)
 
   useEffect(() => {
     loadSets()
@@ -33,19 +35,14 @@ export default function QuizPage() {
   useEffect(() => {
     const loadSession = async () => {
       if (!selectedSet) return
-      setLoading(true)
+      setIsLoadingSession(true)
       const sessionData = await loadActiveSession('quiz', selectedSet)
       if (sessionData && sessionData.questions && sessionData.questions.length > 0) {
         setPendingSession(sessionData)
       } else {
         setPendingSession(null)
-        setQuestions([])
-        setCurrentIndex(0)
-        setAnswers({})
-        setIsFinished(false)
-        setScore(0)
       }
-      setLoading(false)
+      setIsLoadingSession(false)
     }
     loadSession()
   }, [selectedSet])
@@ -138,6 +135,7 @@ export default function QuizPage() {
   }
 
   const handleSaveAndExit = async () => {
+    isSavedRef.current = true
     await saveActiveSession('quiz', selectedSet, {
       questions,
       currentIndex,
@@ -149,14 +147,25 @@ export default function QuizPage() {
   }
 
   const handleDiscardAndExit = async () => {
+    isSavedRef.current = true
     await deleteActiveSession('quiz', selectedSet)
     window.history.go(-2)
   }
 
-  if (loading && sets.length === 0) {
+  useEffect(() => {
+    return () => {
+      if (!isSavedRef.current && questions.length > 0 && !isFinished) {
+        // Cleanup if unmounted without saving explicitly
+        // deleteActiveSession('quiz', selectedSet).catch(console.error)
+      }
+    }
+  }, [questions, isFinished, selectedSet])
+
+  if ((loading && sets.length === 0) || isLoadingSession) {
     return (
-      <div className="flex justify-center items-center py-20">
+      <div className="flex flex-col justify-center items-center py-20 space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
+        <p className="text-slate-400 text-sm">Đang kiểm tra tiến trình đã lưu...</p>
       </div>
     )
   }
