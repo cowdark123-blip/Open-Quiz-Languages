@@ -34,14 +34,16 @@ export async function POST(req: Request) {
       systemPrompt = `You are a strict English grammar checker.
 Analyze the following text: "${text}"
 
-If there are NO errors, respond exactly with:
+Output your response in strict JSON format.
+
+If there are NO errors, respond exactly with this JSON:
 {
   "hasError": false,
   "correctedText": null,
   "explanation": "Câu của bạn đã chính xác!"
 }
 
-If there ARE errors, fix them and respond exactly with:
+If there ARE errors, fix them and respond exactly with this JSON:
 {
   "hasError": true,
   "correctedText": "The fully corrected English text",

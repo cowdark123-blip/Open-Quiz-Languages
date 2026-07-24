@@ -27,7 +27,16 @@ export function VocabProvider({ children }: { children: ReactNode }) {
       fetchUserVocabSets(),
       fetchAllUserVocabItems()
     ])
-    setVocabSets(sets)
+
+    const setsWithAccurateCount = sets.map(set => {
+       const actualCount = items.filter(item => item.set_id === set.id).length;
+       return {
+         ...set,
+         item_count: actualCount > 0 ? actualCount : set.item_count
+       }
+    });
+
+    setVocabSets(setsWithAccurateCount)
     setVocabItems(items)
     setIsLoading(false)
   }

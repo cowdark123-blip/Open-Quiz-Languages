@@ -85,7 +85,7 @@ export const updateUserStreak = checkAndUpdateStreak
 export async function fetchUserVocabSets(userId?: string): Promise<VocabSet[]> {
   const supabase = createClient()
   try {
-    let query = supabase.from('vocab_sets').select('*, vocab_items(count)').order('created_at', { ascending: false })
+    let query = supabase.from('vocab_sets').select('*').order('created_at', { ascending: false })
     
     if (userId) {
       query = query.or(`user_id.eq.${userId},is_public.eq.true`)
@@ -94,12 +94,7 @@ export async function fetchUserVocabSets(userId?: string): Promise<VocabSet[]> {
     const { data, error } = await query
 
     if (error || !data) return []
-    
-    return data.map((set: any) => ({
-      ...set,
-      item_count: set.vocab_items?.[0]?.count || 0,
-      vocab_items: undefined
-    })) as VocabSet[]
+    return data as VocabSet[]
   } catch {
     return []
   }
@@ -318,6 +313,15 @@ export async function insertVocabItem(item: Partial<VocabItem>): Promise<VocabIt
       .single()
 
     if (error) return null
+
+    // Update item_count in vocab_sets
+    if (data && data.set_id) {
+      const { count } = await supabase.from('vocab_items').select('*', { count: 'exact', head: true }).eq('set_id', data.set_id)
+      if (count !== null) {
+        await supabase.from('vocab_sets').update({ item_count: count }).eq('id', data.set_id)
+      }
+    }
+
     return data as VocabItem
   } catch {
     return null
@@ -333,6 +337,16 @@ export async function insertVocabItemsBatch(items: Partial<VocabItem>[]): Promis
       .select()
 
     if (error || !data) return []
+
+    // Update item_count in vocab_sets
+    if (items.length > 0 && items[0].set_id) {
+      const setId = items[0].set_id
+      const { count } = await supabase.from('vocab_items').select('*', { count: 'exact', head: true }).eq('set_id', setId)
+      if (count !== null) {
+        await supabase.from('vocab_sets').update({ item_count: count }).eq('id', setId)
+      }
+    }
+
     return data as VocabItem[]
   } catch {
     return []
@@ -352,7 +366,19 @@ export async function updateVocabItem(id: string, updates: Partial<VocabItem>): 
 export async function deleteVocabItem(id: string): Promise<boolean> {
   const supabase = createClient()
   try {
+    // Get set_id before deleting
+    const { data: item } = await supabase.from('vocab_items').select('set_id').eq('id', id).single()
+    
     const { error } = await supabase.from('vocab_items').delete().eq('id', id)
+    
+    if (!error && item && item.set_id) {
+      // Update item_count in vocab_sets
+      const { count } = await supabase.from('vocab_items').select('*', { count: 'exact', head: true }).eq('set_id', item.set_id)
+      if (count !== null) {
+        await supabase.from('vocab_sets').update({ item_count: count }).eq('id', item.set_id)
+      }
+    }
+    
     return !error
   } catch {
     return false
