@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { fetchUserVocabSets, fetchVocabItems, saveQuizResult } from '@/lib/supabase/data-service'
+import { fetchUserVocabSets, fetchVocabItems, saveQuizResult, loadActiveSession, saveActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { Trophy, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
@@ -27,6 +27,29 @@ export default function QuizPage() {
   useEffect(() => {
     loadSets()
   }, [])
+
+  useEffect(() => {
+    const loadSession = async () => {
+      if (!selectedSet) return
+      setLoading(true)
+      const sessionData = await loadActiveSession('quiz', selectedSet)
+      if (sessionData && sessionData.questions) {
+        setQuestions(sessionData.questions)
+        setCurrentIndex(sessionData.currentIndex || 0)
+        setAnswers(sessionData.answers || {})
+        setIsFinished(sessionData.isFinished || false)
+        setScore(sessionData.score || 0)
+      } else {
+        setQuestions([])
+        setCurrentIndex(0)
+        setAnswers({})
+        setIsFinished(false)
+        setScore(0)
+      }
+      setLoading(false)
+    }
+    loadSession()
+  }, [selectedSet])
 
   const loadSets = async () => {
     setLoading(true)
@@ -79,6 +102,14 @@ export default function QuizPage() {
 
     setQuestions(generatedQuestions)
     setLoading(false)
+    // Optional: save immediately on start
+    await saveActiveSession('quiz', selectedSet, {
+      questions: generatedQuestions,
+      currentIndex: 0,
+      answers: {},
+      isFinished: false,
+      score: 0
+    })
   }
 
   const handleSelectOption = (opt: string) => {
@@ -108,10 +139,27 @@ export default function QuizPage() {
     setSaving(true)
     try {
       await saveQuizResult(selectedSet, currentScore, questions.length)
+      await deleteActiveSession('quiz', selectedSet)
     } catch (error) {
       console.error('Failed to save score', error)
     }
     setSaving(false)
+  }
+
+  const handleSaveAndExit = async () => {
+    await saveActiveSession('quiz', selectedSet, {
+      questions,
+      currentIndex,
+      answers,
+      isFinished,
+      score
+    })
+    window.history.go(-2)
+  }
+
+  const handleDiscardAndExit = async () => {
+    await deleteActiveSession('quiz', selectedSet)
+    window.history.go(-2)
   }
 
   if (loading && sets.length === 0) {
@@ -123,7 +171,11 @@ export default function QuizPage() {
   }
 
   return (
-    <NavigationGuard isDirty={questions.length > 0 && !isFinished}>
+    <NavigationGuard 
+      isDirty={questions.length > 0 && !isFinished}
+      onSaveAndExit={handleSaveAndExit}
+      onDiscardAndExit={handleDiscardAndExit}
+    >
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>

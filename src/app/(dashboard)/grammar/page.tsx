@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { PenTool, CheckCircle2, XCircle, Loader2, Play, Sparkles } from 'lucide-react'
-import { getCurrentUserProfile } from '@/lib/supabase/data-service'
+import { getCurrentUserProfile, saveActiveSession, loadActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
+import NavigationGuard from '@/components/NavigationGuard'
 
 const TOPICS = [
   'Các thì trong tiếng Anh (Tenses)',
@@ -35,6 +36,18 @@ export default function GrammarPage() {
       if (profile?.target_band) setTargetBand(profile.target_band)
     }
     fetchBand()
+
+    const loadSession = async () => {
+      const sessionData = await loadActiveSession('grammar', 'default')
+      if (sessionData && sessionData.practiceQuestions) {
+        setPracticeQuestions(sessionData.practiceQuestions)
+        setAnswers(sessionData.answers || {})
+        setSubmitted(sessionData.submitted || false)
+        setSelectedTopic(sessionData.selectedTopic || TOPICS[0])
+        setActiveTab('practice')
+      }
+    }
+    loadSession()
   }, [])
 
   const handleCheckGrammar = async () => {
@@ -79,6 +92,12 @@ export default function GrammarPage() {
       if (res.ok) {
         const data = await res.json()
         setPracticeQuestions(data.questions)
+        await saveActiveSession('grammar', 'default', {
+          practiceQuestions: data.questions,
+          answers: {},
+          submitted: false,
+          selectedTopic
+        })
       } else {
         alert('Có lỗi xảy ra khi tạo bài tập.')
       }
@@ -90,7 +109,29 @@ export default function GrammarPage() {
     }
   }
 
+  const handleSaveAndExit = async () => {
+    if (practiceQuestions.length > 0 && !submitted) {
+      await saveActiveSession('grammar', 'default', {
+        practiceQuestions,
+        answers,
+        submitted,
+        selectedTopic
+      })
+    }
+    window.history.go(-2)
+  }
+
+  const handleDiscardAndExit = async () => {
+    await deleteActiveSession('grammar', 'default')
+    window.history.go(-2)
+  }
+
   return (
+    <NavigationGuard 
+      isDirty={activeTab === 'practice' && practiceQuestions.length > 0 && !submitted}
+      onSaveAndExit={handleSaveAndExit}
+      onDiscardAndExit={handleDiscardAndExit}
+    >
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <div className="glass-panel p-6 rounded-3xl border border-slate-800 relative">
         <div className="flex items-center justify-between mb-6">
@@ -242,7 +283,12 @@ export default function GrammarPage() {
               
               {!submitted ? (
                 <button
-                  onClick={() => setSubmitted(true)}
+                  onClick={async () => {
+                    setSubmitted(true)
+                    await deleteActiveSession('grammar', 'default')
+                    await checkAndUpdateStreak()
+                    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
+                  }}
                   disabled={Object.keys(answers).length < practiceQuestions.length}
                   className="mt-8 w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-lg disabled:opacity-50 transition-all shadow-lg"
                 >
@@ -261,5 +307,6 @@ export default function GrammarPage() {
         </div>
       )}
     </div>
+    </NavigationGuard>
   )
 }

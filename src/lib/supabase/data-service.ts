@@ -457,3 +457,110 @@ export async function fetchAllUserSRSProgress(): Promise<UserSRSProgress[]> {
     return []
   }
 }
+
+// CONVERSATION HISTORIES
+export async function saveConversationHistory(scenario: string, messages: any[]): Promise<boolean> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+
+    const { error } = await supabase.from('conversation_histories').upsert({
+      user_id: user.id,
+      scenario,
+      messages,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,scenario' })
+    return !error
+  } catch {
+    return false
+  }
+}
+
+export async function loadConversationHistory(scenario: string): Promise<any[]> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const { data } = await supabase
+      .from('conversation_histories')
+      .select('messages')
+      .eq('user_id', user.id)
+      .eq('scenario', scenario)
+      .single()
+
+    return data?.messages || []
+  } catch {
+    return []
+  }
+}
+
+export async function deleteConversationHistory(scenario: string): Promise<boolean> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+
+    const { error } = await supabase.from('conversation_histories').delete().eq('user_id', user.id).eq('scenario', scenario)
+    return !error
+  } catch {
+    return false
+  }
+}
+
+// ACTIVE SESSIONS
+export async function saveActiveSession(moduleType: string, resourceId: string, sessionData: any): Promise<boolean> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+
+    const { error } = await supabase.from('active_learning_sessions').upsert({
+      user_id: user.id,
+      module_type: moduleType,
+      resource_id: resourceId,
+      session_data: sessionData,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,module_type,resource_id' })
+    return !error
+  } catch {
+    return false
+  }
+}
+
+export async function loadActiveSession(moduleType: string, resourceId: string): Promise<any> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data } = await supabase
+      .from('active_learning_sessions')
+      .select('session_data')
+      .eq('user_id', user.id)
+      .eq('module_type', moduleType)
+      .eq('resource_id', resourceId)
+      .single()
+
+    return data?.session_data || null
+  } catch {
+    return null
+  }
+}
+
+export async function deleteActiveSession(moduleType: string, resourceId: string): Promise<boolean> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+
+    const { error } = await supabase.from('active_learning_sessions').delete()
+      .eq('user_id', user.id)
+      .eq('module_type', moduleType)
+      .eq('resource_id', resourceId)
+    return !error
+  } catch {
+    return false
+  }
+}

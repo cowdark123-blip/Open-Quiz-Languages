@@ -157,3 +157,30 @@ ALTER TABLE public.quiz_results ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Quiz Results Own Access" ON public.quiz_results;
 CREATE POLICY "Quiz Results Own Access" ON public.quiz_results FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 7. CONVERSATION HISTORIES TABLE
+CREATE TABLE IF NOT EXISTS public.conversation_histories (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
+  scenario TEXT NOT NULL,
+  messages JSONB DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, scenario)
+);
+ALTER TABLE public.conversation_histories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Conversation Histories Own Access" ON public.conversation_histories FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 8. ACTIVE LEARNING SESSIONS TABLE
+CREATE TABLE IF NOT EXISTS public.active_learning_sessions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
+  module_type TEXT NOT NULL,
+  resource_id TEXT NOT NULL DEFAULT 'default',
+  session_data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, module_type, resource_id)
+);
+ALTER TABLE public.active_learning_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Active Sessions Own Access" ON public.active_learning_sessions FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

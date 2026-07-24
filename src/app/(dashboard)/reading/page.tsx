@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile } from '@/lib/supabase/data-service'
+import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { BookText, Loader2, Play, CheckCircle2, XCircle } from 'lucide-react'
+import NavigationGuard from '@/components/NavigationGuard'
 
 export default function ReadingPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -40,6 +41,29 @@ export default function ReadingPage() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    const loadSession = async () => {
+      if (!selectedSet) return
+      setLoading(true)
+      const sessionData = await loadActiveSession('reading', selectedSet)
+      if (sessionData && sessionData.article) {
+        setArticle(sessionData.article)
+        setQuestions(sessionData.questions || [])
+        setAnswers(sessionData.answers || {})
+        setSubmitted(sessionData.submitted || false)
+      } else {
+        setArticle('')
+        setQuestions([])
+        setAnswers({})
+        setSubmitted(false)
+      }
+      const items = await fetchVocabItems(selectedSet)
+      setVocabItems(items)
+      setLoading(false)
+    }
+    loadSession()
+  }, [selectedSet])
+
   const handleGenerate = async () => {
     if (!selectedSet) return
     setGenerating(true)
@@ -70,6 +94,12 @@ export default function ReadingPage() {
         const data = await res.json()
         setArticle(data.article)
         setQuestions(data.questions)
+        await saveActiveSession('reading', selectedSet, {
+          article: data.article,
+          questions: data.questions,
+          answers: {},
+          submitted: false
+        })
       } else {
         alert('Có lỗi xảy ra khi tạo bài đọc.')
       }
@@ -118,7 +148,27 @@ export default function ReadingPage() {
     )
   }
 
+  const handleSaveAndExit = async () => {
+    await saveActiveSession('reading', selectedSet, {
+      article,
+      questions,
+      answers,
+      submitted
+    })
+    window.history.go(-2)
+  }
+
+  const handleDiscardAndExit = async () => {
+    await deleteActiveSession('reading', selectedSet)
+    window.history.go(-2)
+  }
+
   return (
+    <NavigationGuard 
+      isDirty={article !== '' && !submitted}
+      onSaveAndExit={handleSaveAndExit}
+      onDiscardAndExit={handleDiscardAndExit}
+    >
     <div className="max-w-5xl mx-auto space-y-6 pb-20">
       <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
@@ -215,7 +265,12 @@ export default function ReadingPage() {
               
               {!submitted && (
                 <button
-                  onClick={() => setSubmitted(true)}
+                  onClick={async () => {
+                    setSubmitted(true)
+                    await deleteActiveSession('reading', selectedSet)
+                    await checkAndUpdateStreak()
+                    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
+                  }}
                   disabled={Object.keys(answers).length < questions.length}
                   className="mt-8 w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold disabled:opacity-50 transition-all"
                 >
@@ -256,5 +311,6 @@ export default function ReadingPage() {
         </div>
       </div>
     </div>
+    </NavigationGuard>
   )
 }

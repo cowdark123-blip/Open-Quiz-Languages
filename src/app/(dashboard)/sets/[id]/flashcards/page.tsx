@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, use } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { fetchVocabSetById, fetchVocabItems } from '@/lib/supabase/data-service'
+import { useRouter } from 'next/navigation'
+import NavigationGuard from '@/components/NavigationGuard'
+import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
 import { VocabItem, VocabSet } from '@/types/database'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
 import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard, Loader2 } from 'lucide-react'
@@ -11,6 +13,7 @@ import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, 
 export default function FlashcardsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const setId = resolvedParams.id
+  const router = useRouter()
 
   const [currentSet, setCurrentSet] = useState<VocabSet | null>(null)
   const [cards, setCards] = useState<VocabItem[]>([])
@@ -27,7 +30,16 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       const setObj = await fetchVocabSetById(setId)
       const itemsList = await fetchVocabItems(setId)
       setCurrentSet(setObj)
-      setCards(itemsList)
+
+      const sessionData = await loadActiveSession('flashcards', setId)
+      if (sessionData && sessionData.cards) {
+        setCards(sessionData.cards)
+        setCurrentIndex(sessionData.currentIndex || 0)
+        setMasteredCount(sessionData.masteredCount || 0)
+        setReviewCount(sessionData.reviewCount || 0)
+      } else {
+        setCards([...itemsList].sort(() => Math.random() - 0.5))
+      }
       setLoading(false)
     }
     loadData()
@@ -60,6 +72,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       setCurrentIndex((prev) => prev + 1)
     } else {
       setIsCompleted(true)
+      deleteActiveSession('flashcards', setId)
     }
   }, [currentIndex, cards.length])
 
@@ -69,6 +82,23 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     setMasteredCount(0)
     setReviewCount(0)
     setIsCompleted(false)
+    setCards((prev) => [...prev].sort(() => Math.random() - 0.5))
+    deleteActiveSession('flashcards', setId)
+  }
+
+  const handleSaveAndExit = async () => {
+    await saveActiveSession('flashcards', setId, {
+      cards,
+      currentIndex,
+      masteredCount,
+      reviewCount
+    })
+    router.push(`/sets/${setId}`)
+  }
+
+  const handleDiscardAndExit = async () => {
+    await deleteActiveSession('flashcards', setId)
+    router.push(`/sets/${setId}`)
   }
 
   // Keyboard Shortcuts Handler
@@ -121,6 +151,11 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const progressPercent = Math.round(((currentIndex + (isCompleted ? 1 : 0)) / cards.length) * 100)
 
   return (
+    <NavigationGuard 
+      isDirty={currentIndex > 0 && !isCompleted}
+      onSaveAndExit={handleSaveAndExit}
+      onDiscardAndExit={handleDiscardAndExit}
+    >
     <div className="space-y-6 max-w-4xl mx-auto px-4 py-4">
       {/* Top Header Controls */}
       <div className="flex items-center justify-between">
@@ -341,5 +376,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         </motion.div>
       )}
     </div>
+    </NavigationGuard>
   )
 }

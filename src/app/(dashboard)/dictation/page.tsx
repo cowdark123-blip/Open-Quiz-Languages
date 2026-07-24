@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile } from '@/lib/supabase/data-service'
+import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
@@ -41,13 +41,23 @@ export default function DictationPage() {
 
   const loadItems = async (setId: string) => {
     setLoading(true)
-    const fetched = await fetchVocabItems(setId)
-    // Only keep items that have example sentences
-    const withSentences = fetched.filter(item => item.example_sentence && item.example_sentence.trim() !== '')
-    setItems(withSentences)
-    setCurrentIndex(0)
-    setInput('')
-    setChecked(false)
+    const sessionData = await loadActiveSession('dictation', setId)
+    
+    if (sessionData && sessionData.items && sessionData.items.length > 0) {
+      setItems(sessionData.items)
+      setCurrentIndex(sessionData.currentIndex || 0)
+      setInput(sessionData.input || '')
+      setChecked(sessionData.checked || false)
+      setDiffResult(sessionData.diffResult || [])
+    } else {
+      const fetched = await fetchVocabItems(setId)
+      const withSentences = fetched.filter(item => item.example_sentence && item.example_sentence.trim() !== '')
+      setItems(withSentences)
+      setCurrentIndex(0)
+      setInput('')
+      setChecked(false)
+      setDiffResult([])
+    }
     setLoading(false)
   }
 
@@ -106,15 +116,40 @@ export default function DictationPage() {
 
     setDiffResult(result)
     setChecked(true)
+
+    // Update streak
+    checkAndUpdateStreak().then(() => {
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
+    })
   }
 
-  const nextSentence = () => {
+  const nextSentence = async () => {
     if (currentIndex < items.length - 1) {
       setCurrentIndex(prev => prev + 1)
       setInput('')
       setChecked(false)
       setDiffResult([])
+    } else {
+      await deleteActiveSession('dictation', selectedSet)
+      alert('Bạn đã hoàn thành bài luyện tập!')
+      handleSetChange(selectedSet)
     }
+  }
+
+  const handleSaveAndExit = async () => {
+    await saveActiveSession('dictation', selectedSet, {
+      items,
+      currentIndex,
+      input,
+      checked,
+      diffResult
+    })
+    window.history.go(-2)
+  }
+
+  const handleDiscardAndExit = async () => {
+    await deleteActiveSession('dictation', selectedSet)
+    window.history.go(-2)
   }
 
   if (loading && sets.length === 0) {
@@ -126,7 +161,11 @@ export default function DictationPage() {
   }
 
   return (
-    <NavigationGuard isDirty={input.trim().length > 0 && !checked}>
+    <NavigationGuard 
+      isDirty={items.length > 0 && currentIndex < items.length}
+      onSaveAndExit={handleSaveAndExit}
+      onDiscardAndExit={handleDiscardAndExit}
+    >
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>

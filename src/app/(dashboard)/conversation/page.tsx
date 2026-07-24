@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Mic, Send, Bot, User, Loader2, Sparkles, Volume2 } from 'lucide-react'
-import { getCurrentUserProfile } from '@/lib/supabase/data-service'
+import { Mic, Send, Bot, User, Loader2, Sparkles, Volume2, RotateCcw } from 'lucide-react'
+import { getCurrentUserProfile, loadConversationHistory, saveConversationHistory, deleteConversationHistory, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -41,19 +41,29 @@ export default function ConversationPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
+  useEffect(() => {
+    async function loadHistory() {
+      const history = await loadConversationHistory(scenario)
+      setMessages(history)
+    }
+    loadHistory()
+  }, [scenario])
+
   const initSpeechRecognition = () => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition()
-        recognitionRef.current.continuous = false
-        recognitionRef.current.interimResults = false
+        recognitionRef.current.continuous = true
+        recognitionRef.current.interimResults = true
         recognitionRef.current.lang = 'en-US'
 
         recognitionRef.current.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript
-          setInput(transcript)
-          setIsRecording(false)
+          let currentTranscript = ''
+          for (let i = 0; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript
+          }
+          setInput(currentTranscript)
         }
 
         recognitionRef.current.onerror = (event: any) => {
@@ -101,6 +111,8 @@ export default function ConversationPage() {
     setMessages(updatedMessages)
     setInput('')
     setLoading(true)
+    
+    await saveConversationHistory(scenario, updatedMessages)
 
     try {
       // Send only recent context to avoid token limits
@@ -118,16 +130,23 @@ export default function ConversationPage() {
       if (res.ok) {
         const data = await res.json()
         
-        // Add AI response
-        setMessages(prev => [
-          ...prev, 
+        const finalMessages: Message[] = [
+          ...updatedMessages, 
           { 
             role: 'assistant', 
             content: data.reply,
             grammarFix: data.grammarFix,
             nativeSuggestion: data.nativeSuggestion
           }
-        ])
+        ]
+        setMessages(finalMessages)
+        await saveConversationHistory(scenario, finalMessages)
+
+        const userMsgCount = finalMessages.filter(m => m.role === 'user').length
+        if (userMsgCount >= 2) {
+           await checkAndUpdateStreak()
+           if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
+        }
 
         playAudio(data.reply)
       } else {
@@ -137,6 +156,13 @@ export default function ConversationPage() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (confirm('Bạn có chắc chắn muốn xóa lịch sử trò chuyện này?')) {
+      await deleteConversationHistory(scenario)
+      setMessages([])
     }
   }
 
@@ -151,16 +177,25 @@ export default function ConversationPage() {
           </h2>
           <p className="text-xs text-slate-400">Luyện phản xạ giao tiếp & Sửa lỗi ngữ pháp</p>
         </div>
-        <select 
-          className="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500"
-          value={scenario}
-          onChange={(e) => {
-            setScenario(e.target.value)
-            setMessages([])
-          }}
-        >
-          {SCENARIOS.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <div className="flex items-center gap-2">
+          <select 
+            className="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+            value={scenario}
+            onChange={(e) => {
+              setScenario(e.target.value)
+              setMessages([])
+            }}
+          >
+            {SCENARIOS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button 
+            onClick={handleReset} 
+            className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 text-xs font-bold transition-colors flex items-center gap-1"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Tạo mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Chat History */}
