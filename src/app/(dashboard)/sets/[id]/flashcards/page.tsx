@@ -28,6 +28,11 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const [toast, setToast] = useState('')
   const [pendingSession, setPendingSession] = useState<any>(null)
   const pendingSaves = React.useRef<Promise<any>[]>([])
+  
+  const [allCards, setAllCards] = useState<VocabItem[]>([])
+  const [isSetupComplete, setIsSetupComplete] = useState(false)
+  const [filterType, setFilterType] = useState('all')
+  const [sortType, setSortType] = useState('shuffle')
 
   const toggleStar = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -44,18 +49,48 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       const setObj = await fetchVocabSetById(setId)
       const itemsList = await fetchVocabItems(setId)
       setCurrentSet(setObj)
+      setAllCards(itemsList)
 
       const sessionData = await loadActiveSession('flashcards', setId)
       if (sessionData && sessionData.cards && sessionData.cards.length > 0) {
         setPendingSession(sessionData)
       } else {
         setPendingSession(null)
-        setCards([...itemsList].sort(() => Math.random() - 0.5))
       }
       setLoading(false)
     }
     loadData()
   }, [setId])
+
+  const handleStartSetup = () => {
+    let filtered = [...allCards]
+    if (filterType === 'mastered') {
+      filtered = filtered.filter(c => c.srsProgress?.status === 'mastered' || (c.srsProgress?.repetition || 0) >= 4)
+    } else if (filterType === 'learning') {
+      filtered = filtered.filter(c => (c.srsProgress?.repetition || 0) > 0 && c.srsProgress?.status !== 'mastered' && (c.srsProgress?.repetition || 0) < 4)
+    } else if (filterType === 'new') {
+      filtered = filtered.filter(c => !c.srsProgress || c.srsProgress.repetition === 0)
+    } else if (filterType === 'starred') {
+      filtered = filtered.filter(c => c.is_starred)
+    }
+
+    if (sortType === 'shuffle') {
+      filtered.sort(() => Math.random() - 0.5)
+    } else if (sortType === 'az') {
+      filtered.sort((a, b) => a.term.localeCompare(b.term))
+    } else if (sortType === 'newest') {
+      filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    } else if (sortType === 'oldest') {
+      filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    }
+
+    setCards(filtered)
+    setIsSetupComplete(true)
+    setCurrentIndex(0)
+    setMasteredCount(0)
+    setReviewCount(0)
+    setIsCompleted(false)
+  }
 
   const currentCard = cards[currentIndex]
 
@@ -117,9 +152,10 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     setMasteredCount(0)
     setReviewCount(0)
     setIsCompleted(false)
+    setIsSetupComplete(false)
     
     const itemsList = await fetchVocabItems(setId)
-    setCards([...itemsList].sort(() => Math.random() - 0.5))
+    setAllCards(itemsList)
     await deleteActiveSession('flashcards', setId)
     setLoading(false)
   }
@@ -181,13 +217,24 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  if (!currentCard || cards.length === 0) {
+  if (allCards.length === 0) {
     return (
       <div className="max-w-xl mx-auto py-16 text-center space-y-4">
         <h3 className="text-xl font-bold text-white">Chưa có từ vựng nào trong bộ này</h3>
         <Link href={`/sets/${setId}`} className="text-purple-400 font-semibold hover:underline">
           Quay lại để thêm từ vựng mới
         </Link>
+      </div>
+    )
+  }
+
+  if (isSetupComplete && (!currentCard || cards.length === 0)) {
+    return (
+      <div className="max-w-xl mx-auto py-16 text-center space-y-4">
+        <h3 className="text-xl font-bold text-white">Không có từ vựng nào phù hợp với bộ lọc</h3>
+        <button onClick={() => setIsSetupComplete(false)} className="text-purple-400 font-semibold hover:underline">
+          Quay lại để chọn lại bộ lọc
+        </button>
       </div>
     )
   }
@@ -271,6 +318,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
                 setCurrentIndex(pendingSession.currentIndex || 0)
                 setMasteredCount(pendingSession.masteredCount || 0)
                 setReviewCount(pendingSession.reviewCount || 0)
+                setIsSetupComplete(true)
                 setPendingSession(null)
               }}
               className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition-all shadow-lg shadow-purple-500/20"
@@ -280,13 +328,70 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
             <button
               onClick={() => {
                 setPendingSession(null)
-                handleRestart()
+                deleteActiveSession('flashcards', setId)
               }}
               className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
             >
               Học Lại Từ Đầu (Xóa cũ)
             </button>
           </div>
+        </div>
+      ) : !isSetupComplete ? (
+        <div className="glass-panel p-8 rounded-3xl border border-purple-500/30 space-y-8 animate-in fade-in max-w-2xl mx-auto mt-8">
+          <div className="text-center space-y-2">
+            <h3 className="text-2xl font-black text-white">Cài Đặt Bài Học</h3>
+            <p className="text-sm text-slate-400">Tùy chỉnh thẻ Flashcard bạn muốn ôn tập hôm nay</p>
+          </div>
+          
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-slate-300">Lọc từ vựng</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  { id: 'all', label: 'Tất cả' },
+                  { id: 'new', label: '🔴 Chưa học' },
+                  { id: 'learning', label: '🟡 Đang học' },
+                  { id: 'mastered', label: '🟢 Đã thuộc' },
+                  { id: 'starred', label: '⭐ Đã gắn sao' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setFilterType(opt.id)}
+                    className={`p-3 rounded-xl text-xs font-bold transition-all border ${filterType === opt.id ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-slate-300">Thứ tự hiển thị</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { id: 'shuffle', label: '🔀 Ngẫu nhiên' },
+                  { id: 'az', label: 'A-Z' },
+                  { id: 'newest', label: 'Mới nhất' },
+                  { id: 'oldest', label: 'Cũ nhất' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setSortType(opt.id)}
+                    className={`p-3 rounded-xl text-xs font-bold transition-all border ${sortType === opt.id ? 'bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleStartSetup}
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-sm shadow-lg shadow-purple-500/25 transition-all hover:scale-[1.02]"
+          >
+            Bắt Đầu Học
+          </button>
         </div>
       ) : !isCompleted ? (
         <div className="space-y-6">
@@ -481,7 +586,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
               <span>Học Lại Bộ Này</span>
             </button>
             <Link
-              href="/srs"
+              href={`/sets/${setId}/srs`}
               className="w-full sm:w-1/2 py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition-all flex items-center justify-center gap-2"
             >
               <Brain className="w-4 h-4" />
