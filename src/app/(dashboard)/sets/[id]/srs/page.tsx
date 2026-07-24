@@ -8,6 +8,7 @@ import { calculateSM2, getSM2IntervalPreviews, formatInterval, SRSGrade } from '
 import { fetchDueSRSItems, saveSRSProgress } from '@/lib/supabase/data-service'
 import { playTTS } from '@/lib/tts'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
+import SRSForecastChart from '@/components/SRSForecastChart'
 import { Volume2, ArrowLeft, RotateCcw, Brain, Trophy, Keyboard, Eye, Loader2, CheckCircle2, Star, CheckCircle } from 'lucide-react'
 import { updateVocabItem } from '@/lib/supabase/data-service'
 
@@ -210,7 +211,7 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
   )
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4 relative">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4 relative responsive-boundary">
       {toast && (
         <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-5 duration-300">
           <div className="bg-emerald-500/90 text-white px-4 py-2 rounded-xl shadow-lg border border-emerald-400/50 text-sm font-bold flex items-center gap-2">
@@ -446,6 +447,9 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
             <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-emerald-400 font-mono text-[11px]">4</kbd> Dễ
           </span>
         </div>
+
+        {/* 7-Day Review Forecast Chart */}
+        <SRSForecastChart />
       </div>
     </div>
   )

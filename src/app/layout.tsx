@@ -1,5 +1,20 @@
 import type { Metadata } from 'next'
+import { Outfit, Inter } from 'next/font/google'
+import { BackgroundProvider } from '@/contexts/BackgroundContext'
+import { BackgroundWrapper } from '@/components/common/BackgroundWrapper'
 import './globals.css'
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+  display: 'swap',
+})
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'OpenQuiz AI - Học Từ Vựng & Luyện Nói Phản Xạ Thông Minh',
@@ -12,9 +27,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="vi" className="dark" suppressHydrationWarning>
-      <body className="min-h-screen bg-[#090d16] text-slate-100 antialiased selection:bg-purple-500/30 selection:text-purple-200" suppressHydrationWarning>
-        {children}
+    <html lang="vi" className={`dark ${outfit.variable} ${inter.variable}`} suppressHydrationWarning>
+      <body
+        className={`${outfit.variable} ${inter.variable} min-h-screen bg-[#090d16] text-slate-100 antialiased selection:bg-purple-500/30 selection:text-purple-200`}
+        suppressHydrationWarning
+      >
+        <BackgroundProvider>
+          <BackgroundWrapper>{children}</BackgroundWrapper>
+        </BackgroundProvider>
       </body>
     </html>
   )

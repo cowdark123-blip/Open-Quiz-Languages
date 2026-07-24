@@ -279,7 +279,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       onSaveAndExit={handleSaveAndExit}
       onDiscardAndExit={handleDiscardAndExit}
     >
-    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4 relative">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 py-4 relative responsive-boundary">
       {toast && (
         <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-5 duration-300">
           <div className="bg-emerald-500/90 text-white px-4 py-2 rounded-xl shadow-lg border border-emerald-400/50 text-sm font-bold flex items-center gap-2">

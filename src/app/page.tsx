@@ -1,11 +1,34 @@
 'use client'
 
-import { useState, useEffect, Suspense, useRef } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
-import { Sparkles, Brain, Mic, Flame, ArrowRight, Volume2, CalendarClock, X, Loader2 } from 'lucide-react'
-import { playTTS } from '@/lib/tts'
+import { Navbar } from '@/components/navigation/Navbar'
+import { Footer } from '@/components/navigation/Footer'
+import { Flashcards3D } from '@/components/study/Flashcards3D'
+import { QuizEngine } from '@/components/study/QuizEngine'
+import { SRSView } from '@/components/study/SRSView'
+import { AIVocabGenerator } from '@/components/study/AIVocabGenerator'
+import { VocabItem } from '@/types/database'
+import {
+  Sparkles,
+  Brain,
+  Mic,
+  Flame,
+  ArrowRight,
+  Volume2,
+  CalendarClock,
+  Trophy,
+  Layers,
+  Zap,
+  CheckCircle2,
+  ShieldCheck,
+  Bot,
+  Play,
+  Bookmark,
+} from 'lucide-react'
 
 function OAuthCallbackHandler() {
   const router = useRouter()
@@ -15,28 +38,74 @@ function OAuthCallbackHandler() {
     const code = searchParams.get('code')
     if (code) {
       const supabase = createClient()
-      supabase.auth.exchangeCodeForSession(code).then(() => {
-        router.push('/dashboard')
-      }).catch(() => {
-        router.push('/dashboard')
-      })
+      supabase
+        .auth.exchangeCodeForSession(code)
+        .then(() => {
+          router.push('/dashboard')
+        })
+        .catch(() => {
+          router.push('/dashboard')
+        })
     }
   }, [searchParams, router])
 
   return null
 }
 
-export default function LandingPage() {
-  const [activeTab, setActiveTab] = useState<'flashcard' | 'speaking'>('flashcard')
-  const [flipped, setFlipped] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  
-  const [isRecording, setIsRecording] = useState(false)
-  const [speechResult, setSpeechResult] = useState<{acc: number, pro: number, overall: number} | null>(null)
-  const recognitionRef = useRef<any>(null)
+const sampleDemoItems: VocabItem[] = [
+  {
+    id: 'demo-1',
+    set_id: 'demo-set',
+    term: 'Atmosphere',
+    ipa: '/ˈæt.mə.sfɪər/',
+    definition: 'The envelope of gases surrounding the earth or another planet, or the pervading tone/mood.',
+    vietnamese_translation: 'Bầu không khí, khí quyển',
+    example_sentence: 'The atmosphere in the conference hall was electric before the speech.',
+    synonyms: ['air', 'environment', 'ambiance', 'mood'],
+    is_starred: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-2',
+    set_id: 'demo-set',
+    term: 'Resilience',
+    ipa: '/rɪˈzɪl.jəns/',
+    definition: 'The capacity to withstand or recover quickly from difficult conditions.',
+    vietnamese_translation: 'Khả năng phục hồi, sự kiên cường',
+    example_sentence: 'Courage and resilience helped her navigate through tough economic times.',
+    synonyms: ['toughness', 'flexibility', 'durability'],
+    is_starred: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-3',
+    set_id: 'demo-set',
+    term: 'Meticulous',
+    ipa: '/məˈtɪk.jə.ləs/',
+    definition: 'Showing great attention to detail; very careful and precise.',
+    vietnamese_translation: 'Tỉ mỉ, cẩn thận',
+    example_sentence: 'He performed a meticulous examination of the financial reports.',
+    synonyms: ['thorough', 'scrupulous', 'precise'],
+    is_starred: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-4',
+    set_id: 'demo-set',
+    term: 'Ubiquitous',
+    ipa: '/juːˈbɪk.wə.təs/',
+    definition: 'Present, appearing, or found everywhere.',
+    vietnamese_translation: 'Có mặt ở khắp mọi nơi',
+    example_sentence: 'Smartphones have become ubiquitous in daily life across the globe.',
+    synonyms: ['omnipresent', 'pervasive', 'universal'],
+    is_starred: true,
+    created_at: new Date().toISOString(),
+  },
+]
 
-  const [srsMessage, setSrsMessage] = useState<string | null>(null)
-  const [srsAnimating, setSrsAnimating] = useState(false)
+export default function LandingPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [activeTab, setActiveTab] = useState<'flashcard' | 'srs' | 'quiz' | 'ai'>('flashcard')
 
   useEffect(() => {
     const supabase = createClient()
@@ -45,390 +114,204 @@ export default function LandingPage() {
     })
   }, [])
 
-  const [isPlayingDemo, setIsPlayingDemo] = useState(false)
-  const playAudio = async (text: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation()
-    setIsPlayingDemo(true)
-    await playTTS(text)
-    setIsPlayingDemo(false)
-  }
-
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 relative overflow-hidden">
+    <div className="min-h-screen bg-[#090d16] text-slate-100 relative overflow-hidden flex flex-col justify-between responsive-boundary">
       <Suspense fallback={null}>
         <OAuthCallbackHandler />
       </Suspense>
 
       {/* Dynamic Background Glows */}
-      <div className="absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-[40%] right-[-10%] w-[600px] h-[600px] bg-cyan-600/15 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[20%] w-[550px] h-[550px] bg-purple-600/20 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-[35%] right-[-10%] w-[650px] h-[650px] bg-cyan-600/15 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute bottom-[10%] left-[-5%] w-[450px] h-[450px] bg-emerald-600/15 rounded-full blur-[130px] pointer-events-none" />
 
-      {/* Navigation Header */}
-      <header className="sticky top-0 z-50 glass-panel border-b border-slate-800/80 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-105 transition-transform">
-              <Brain className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-xl tracking-tight text-white flex items-center gap-1.5">
-                OpenQuiz <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">AI</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium">SRS & Speaking Reflex</span>
-            </div>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8 text-sm text-slate-300 font-medium">
-            <a href="#features" className="hover:text-purple-400 transition-colors">Tính năng AI</a>
-            <a href="#srs" className="hover:text-purple-400 transition-colors">Thuật toán SRS</a>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            {isLoggedIn ? (
-              <Link
-                href="/dashboard"
-                className="text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-5 py-2.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all transform hover:-translate-y-0.5"
-              >
-                Vào Bảng Điều Khiển 🚀
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="text-sm font-medium text-slate-300 hover:text-white px-4 py-2 transition-colors"
-                >
-                  Đăng nhập
-                </Link>
-                <Link
-                  href="/register"
-                  className="text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-5 py-2.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
-                >
-                  Bắt đầu ngay
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Top Navigation */}
+      <Navbar />
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-6 pt-20 pb-16 text-center relative z-10">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium mb-8 animate-pulse">
-          <Sparkles className="w-4 h-4 text-purple-400" />
-          <span>Mô Phỏng Chuẩn OpenQuiz.ai Với Công Nghệ AI</span>
-        </div>
+      <section className="max-w-7xl mx-auto px-6 pt-16 pb-14 text-center relative z-10 w-full">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-300 text-xs font-bold mb-6"
+        >
+          <Sparkles className="w-4 h-4 text-purple-400 animate-spin" />
+          <span>Thế Hệ Tiếp Theo Với Thuật Toán SRS SM-2 & Groq AI</span>
+        </motion.div>
 
-        <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight max-w-4xl mx-auto leading-tight mb-6">
-          Chuyển Từ Nhớ Từ Vựng Thụ Động Sang <span className="text-gradient">Phản Xạ Nói Chủ Động</span>
-        </h1>
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white tracking-tight max-w-5xl mx-auto leading-tight mb-6 font-outfit"
+        >
+          Chuyển Từ Nhớ Từ Vựng Thụ Động Sang{' '}
+          <span className="text-gradient">Phản Xạ Nói Chủ Động</span>
+        </motion.h1>
 
-        <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-          Kết hợp thuật toán lặp lại ngắt quãng SM-2, tự động tạo bài học bằng AI và chấm điểm phát âm ngữ điệu từng từ chi tiết.
-        </p>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="text-slate-400 text-base md:text-xl max-w-3xl mx-auto mb-10 leading-relaxed font-normal"
+        >
+          Tích hợp thuật toán lặp lại ngắt quãng SM-2 đỉnh cao, thẻ lật 3D đa chiều, chấm điểm phát âm ngữ điệu tức thì và tạo bài học tự động với trí tuệ nhân tạo AI.
+        </motion.p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-16">
+        {/* CTA Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-14"
+        >
           <Link
-            href={isLoggedIn ? "/dashboard" : "/register"}
-            className="w-full sm:w-auto text-center px-8 py-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:opacity-95 text-white font-bold text-base shadow-xl shadow-purple-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
+            href={isLoggedIn ? '/dashboard' : '/register'}
+            className="w-full sm:w-auto text-center px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:opacity-95 text-white font-extrabold text-sm shadow-xl shadow-purple-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
           >
-            <span>Bắt Đầu Ngay</span>
-            <ArrowRight className="w-5 h-5" />
+            <span>{isLoggedIn ? 'Bảng Điều Khiển' : 'Bắt Đầu Học Miễn Phí'}</span>
+            <ArrowRight className="w-4 h-4" />
           </Link>
-          <a
-            href="#features"
-            className="w-full sm:w-auto text-center px-8 py-4 rounded-xl glass-panel text-slate-200 font-semibold text-base hover:bg-slate-800/80 transition-all border border-slate-700/60"
-          >
-            Thử Bản Demo
-          </a>
-        </div>
 
-        {/* Feature Highlights Banner */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto text-left">
-          <div className="glass-card p-4 rounded-2xl flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400">
+          <a
+            href="#demo-showcase"
+            className="w-full sm:w-auto text-center px-8 py-4 rounded-2xl glass-panel text-slate-200 font-semibold text-sm hover:bg-slate-800/80 transition-all border border-slate-700/60 flex items-center justify-center gap-2"
+          >
+            <Play className="w-4 h-4 text-purple-400" />
+            <span>Thử Mô Phỏng Trực Tiếp</span>
+          </a>
+        </motion.div>
+
+        {/* Feature Highlights Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto text-left">
+          <div className="glass-card p-4.5 rounded-2xl flex items-center gap-3.5 border border-purple-500/20">
+            <div className="p-3 rounded-xl bg-purple-500/15 text-purple-400">
               <Brain className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">SRS SM-2</div>
-              <div className="text-xs text-slate-400">Nhớ lâu 10x</div>
+              <div className="text-sm font-bold text-white font-outfit">SRS SM-2</div>
+              <div className="text-xs text-slate-400">Ghi nhớ gấp 10x</div>
             </div>
           </div>
-          <div className="glass-card p-4 rounded-2xl flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400">
+
+          <div className="glass-card p-4.5 rounded-2xl flex items-center gap-3.5 border border-cyan-500/20">
+            <div className="p-3 rounded-xl bg-cyan-500/15 text-cyan-400">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">AI Auto-Fill</div>
-              <div className="text-xs text-slate-400">Tự tạo ví dụ & IPA</div>
+              <div className="text-sm font-bold text-white font-outfit">AI Vocab Auto-Fill</div>
+              <div className="text-xs text-slate-400">IPA & ví dụ tự động</div>
             </div>
           </div>
-          <div className="glass-card p-4 rounded-2xl flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
+
+          <div className="glass-card p-4.5 rounded-2xl flex items-center gap-3.5 border border-emerald-500/20">
+            <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400">
               <Mic className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">Luyện Nói AI</div>
-              <div className="text-xs text-slate-400">Tình huống thực tế</div>
+              <div className="text-sm font-bold text-white font-outfit">Luyện Phát Âm AI</div>
+              <div className="text-xs text-slate-400">Chấm điểm từ từng âm</div>
             </div>
           </div>
-          <div className="glass-card p-4 rounded-2xl flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400">
-              <Flame className="w-5 h-5" />
+
+          <div className="glass-card p-4.5 rounded-2xl flex items-center gap-3.5 border border-amber-500/20">
+            <div className="p-3 rounded-xl bg-amber-500/15 text-amber-400">
+              <Trophy className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">Chấm Phát Âm</div>
-              <div className="text-xs text-slate-400">Phân tích từ từ</div>
+              <div className="text-sm font-bold text-white font-outfit">Quiz Testing Engine</div>
+              <div className="text-xs text-slate-400">Confetti & Timer Ring</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Feature 1: Flashcard & Speaking */}
-      <section id="features" className="max-w-5xl mx-auto px-6 py-16">
-        <div className="glass-panel p-8 rounded-3xl border border-slate-800 relative shadow-2xl">
-          <a href="#" className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-800 text-slate-500 hover:text-white transition-colors" title="Đóng">
-            <X className="w-5 h-5" />
-          </a>
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 pb-4 border-b border-slate-800 gap-4 mt-6 md:mt-0">
+      {/* Interactive Module Showcase Section */}
+      <section id="demo-showcase" className="max-w-6xl mx-auto px-4 py-16 w-full">
+        <div className="glass-panel p-6 sm:p-10 rounded-3xl border border-slate-800 relative shadow-2xl space-y-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-6 border-b border-slate-800/80 gap-4">
             <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-400" />
-                <span>Thẻ Ghi Nhớ & AI Speaking</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">Thử lật thẻ 3D và dùng Micro để nhận điểm phát âm tức thì</p>
+              <div className="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">
+                <Zap className="w-4 h-4" />
+                Trải Nghiệm Mô Phỏng Trực Tiếp
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-white font-outfit">
+                Các Module Học Tập Đa Dạng
+              </h2>
             </div>
-            <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800 shrink-0">
+
+            {/* Showcase Selector Tabs */}
+            <div className="flex flex-wrap bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shrink-0">
               <button
                 onClick={() => setActiveTab('flashcard')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'flashcard' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  activeTab === 'flashcard'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Mặt Trực Quan
+                <Layers className="w-4 h-4" />
+                <span>Flashcards 3D</span>
               </button>
+
               <button
-                onClick={() => setActiveTab('speaking')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'speaking' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                onClick={() => setActiveTab('srs')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  activeTab === 'srs'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Mặt Luyện Nói
+                <CalendarClock className="w-4 h-4" />
+                <span>Lặp Ngắt Quãng SRS</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('quiz')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  activeTab === 'quiz'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Trophy className="w-4 h-4" />
+                <span>Quiz Engine</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('ai')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  activeTab === 'ai'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>AI Vocab Generator</span>
               </button>
             </div>
           </div>
 
-          {activeTab === 'flashcard' ? (
-            <div className="py-8 flex flex-col items-center justify-center">
-              <div
-                onClick={() => setFlipped(!flipped)}
-                className="w-full max-w-md h-64 cursor-pointer perspective-1000 select-none group"
-              >
-                <div
-                  className={`w-full h-full relative transition-transform duration-500 transform-style-3d ${
-                    flipped ? 'rotate-y-180' : ''
-                  }`}
-                >
-                  <div className="absolute inset-0 w-full h-full glass-card rounded-2xl p-8 flex flex-col items-center justify-center text-center backface-hidden">
-                    <div className="space-y-4">
-                      <span className="text-xs uppercase tracking-widest font-semibold text-purple-400">Từ mục tiêu</span>
-                      <h2 className="text-4xl font-extrabold text-white tracking-wide">Atmosphere</h2>
-                      <p className="text-slate-400 text-sm italic font-mono">/ˈæt.mə.sfɪər/</p>
-                      <button 
-                        onClick={(e) => playAudio('Atmosphere', e)}
-                        disabled={isPlayingDemo}
-                        className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-slate-300 hover:text-white disabled:opacity-50"
-                      >
-                        {isPlayingDemo ? <Loader2 className="w-4 h-4 text-purple-400 animate-spin" /> : <Volume2 className="w-4 h-4 text-purple-400" />}
-                        <span>Phát âm chuẩn</span>
-                      </button>
-                      <p className="text-xs text-slate-500 pt-2">(Nhấp chuột để lật thẻ)</p>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 w-full h-full glass-card rounded-2xl p-8 flex flex-col items-center justify-center text-center backface-hidden rotate-y-180">
-                    <div className="space-y-3">
-                      <span className="text-xs uppercase tracking-widest font-semibold text-cyan-400">Định nghĩa & Ví dụ</span>
-                      <h4 className="text-lg font-bold text-white">Bầu không khí, khí quyển</h4>
-                      <p className="text-xs text-slate-300 bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-left">
-                        "The atmosphere in the room was very tense before the exam."
-                      </p>
-                      <p className="text-xs text-purple-300 text-left">
-                        <strong>Từ đồng nghĩa:</strong> air, mood, feeling, environment
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6 max-w-2xl mx-auto">
-              <div className="text-center space-y-4">
-                <h4 className="text-3xl font-bold text-white">Atmosphere</h4>
-                <p className="text-sm text-slate-400">Bấm Micro và đọc to từ trên để nhận điểm</p>
-                <button
-                  onClick={() => {
-                    if (isRecording) {
-                      recognitionRef.current?.stop()
-                      setIsRecording(false)
-                      return
-                    }
-                    setSpeechResult(null)
-                    if (typeof window !== 'undefined') {
-                      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-                      if (SpeechRecognition) {
-                        recognitionRef.current = new SpeechRecognition()
-                        recognitionRef.current.lang = 'en-US'
-                        recognitionRef.current.continuous = false
-                        recognitionRef.current.interimResults = false
-                        recognitionRef.current.onstart = () => setIsRecording(true)
-                        recognitionRef.current.onresult = () => {
-                          setIsRecording(false)
-                          setSpeechResult({
-                            overall: Math.floor(Math.random() * 20) + 80,
-                            acc: Math.floor(Math.random() * 15) + 85,
-                            pro: Math.floor(Math.random() * 20) + 80
-                          })
-                        }
-                        recognitionRef.current.onerror = () => setIsRecording(false)
-                        recognitionRef.current.onend = () => setIsRecording(false)
-                        recognitionRef.current.start()
-                      } else {
-                        setIsRecording(true)
-                        setTimeout(() => {
-                          setIsRecording(false)
-                          setSpeechResult({ overall: 92, acc: 95, pro: 88 })
-                        }, 2000)
-                      }
-                    }
-                  }}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto transition-all ${
-                    isRecording 
-                      ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40' 
-                      : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:scale-105 shadow-lg shadow-purple-500/25'
-                  }`}
-                >
-                  <Mic className="w-7 h-7" />
-                </button>
-              </div>
-
-              {speechResult && (
-                <div className="grid grid-cols-3 gap-4 pt-4 animate-in fade-in slide-in-from-bottom-2">
-                  <div className="glass-card p-4 rounded-xl text-center">
-                    <div className="text-2xl font-black text-emerald-400">{speechResult.overall}/100</div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">Điểm Tổng</div>
-                  </div>
-                  <div className="glass-card p-4 rounded-xl text-center">
-                    <div className="text-xl font-bold text-blue-400">{speechResult.acc}%</div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">Độ chính xác</div>
-                  </div>
-                  <div className="glass-card p-4 rounded-xl text-center">
-                    <div className="text-xl font-bold text-purple-400">{speechResult.pro}%</div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">Ngữ điệu</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Feature 2: SRS Demo */}
-      <section id="srs" className="max-w-5xl mx-auto px-6 py-16">
-        <div className="glass-panel p-8 rounded-3xl border border-slate-800 relative shadow-2xl">
-          <a href="#" className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-800 text-slate-500 hover:text-white transition-colors" title="Đóng">
-            <X className="w-5 h-5" />
-          </a>
-          <div className="flex flex-col md:flex-row items-start justify-between mb-8 pb-4 border-b border-slate-800 gap-4 mt-6 md:mt-0">
-            <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <CalendarClock className="w-5 h-5 text-cyan-400" />
-                <span>Mô Phỏng Thuật Toán SRS SM-2</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">Hệ thống tính toán thời gian lặp lại tối ưu dựa trên độ khó</p>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center justify-center py-6">
-            <div className={`w-full max-w-sm glass-card p-8 rounded-2xl text-center border-t-4 border-cyan-500 transition-all duration-300 ${srsAnimating ? 'scale-95 opacity-50 blur-sm' : 'scale-100 opacity-100'}`}>
-              <span className="text-xs text-slate-400 uppercase tracking-widest">Đang học từ</span>
-              <h4 className="text-3xl font-bold text-white my-4">Atmosphere</h4>
-              <p className="text-slate-300 mb-8">Bầu không khí, khí quyển</p>
-              
-              <div className="grid grid-cols-4 gap-2">
-                <button 
-                  onClick={() => {
-                    setSrsAnimating(true)
-                    setSrsMessage('Từ này đã được hẹn giờ ôn lại vào 1 ngày sau!')
-                    setTimeout(() => setSrsAnimating(false), 600)
-                  }} 
-                  className="p-2 rounded-xl bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 transition-colors"
-                >
-                  <div className="text-xs font-bold">Nhắc Lại</div>
-                  <div className="text-[10px] opacity-70">1 ngày</div>
-                </button>
-                <button 
-                  onClick={() => {
-                    setSrsAnimating(true)
-                    setSrsMessage('Từ này đã được hẹn giờ ôn lại vào 2 ngày sau!')
-                    setTimeout(() => setSrsAnimating(false), 600)
-                  }} 
-                  className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 text-orange-400 transition-colors"
-                >
-                  <div className="text-xs font-bold">Khó</div>
-                  <div className="text-[10px] opacity-70">2 ngày</div>
-                </button>
-                <button 
-                  onClick={() => {
-                    setSrsAnimating(true)
-                    setSrsMessage('Từ này đã được hẹn giờ ôn lại vào 4 ngày sau!')
-                    setTimeout(() => setSrsAnimating(false), 600)
-                  }} 
-                  className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 text-blue-400 transition-colors"
-                >
-                  <div className="text-xs font-bold">Tốt</div>
-                  <div className="text-[10px] opacity-70">4 ngày</div>
-                </button>
-                <button 
-                  onClick={() => {
-                    setSrsAnimating(true)
-                    setSrsMessage('Từ này đã được hẹn giờ ôn lại vào 7 ngày sau!')
-                    setTimeout(() => setSrsAnimating(false), 600)
-                  }} 
-                  className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 transition-colors"
-                >
-                  <div className="text-xs font-bold">Dễ</div>
-                  <div className="text-[10px] opacity-70">7 ngày</div>
-                </button>
-              </div>
-            </div>
-
-            {srsMessage && (
-              <div className="mt-8 px-6 py-3 rounded-full bg-cyan-950/50 border border-cyan-800 text-cyan-300 font-medium animate-in fade-in slide-in-from-bottom-4 flex items-center justify-between gap-4">
-                <span>{srsMessage}</span>
-                <button 
-                  onClick={() => setSrsMessage(null)}
-                  className="p-1 hover:bg-cyan-900/50 rounded-full transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+          {/* Module Content Views */}
+          <div className="py-2">
+            {activeTab === 'flashcard' && (
+              <Flashcards3D items={sampleDemoItems} setTitle="Demo Bộ Từ Vựng IELTS" />
             )}
+
+            {activeTab === 'srs' && <SRSView items={sampleDemoItems} />}
+
+            {activeTab === 'quiz' && (
+              <QuizEngine items={sampleDemoItems} questionCount={4} timerSeconds={15} />
+            )}
+
+            {activeTab === 'ai' && <AIVocabGenerator />}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800 py-8 px-6 text-center text-slate-500 text-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4 text-purple-400" />
-            <span className="font-semibold text-slate-300">OpenQuiz AI</span> © 2026 - Nền tảng Học Từ Vựng & Luyện Nói AI.
-          </div>
-          <div className="flex items-center gap-6">
-            <span>Chính sách bảo mật</span>
-            <span>Điều khoản sử dụng</span>
-          </div>
-        </div>
-      </footer>
+      {/* Bottom Footer */}
+      <Footer />
     </div>
   )
 }

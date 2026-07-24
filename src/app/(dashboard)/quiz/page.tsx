@@ -5,6 +5,7 @@ import { fetchUserVocabSets, fetchVocabItems, saveQuizResult, loadActiveSession,
 import { VocabSet, VocabItem } from '@/types/database'
 import { shuffleArray } from '@/lib/random'
 import { Trophy, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import NavigationGuard from '@/components/NavigationGuard'
 import MultiSetSelector from '@/components/MultiSetSelector'
 import WordSelector from '@/components/WordSelector'
@@ -131,11 +132,24 @@ export default function QuizPage() {
     })
     setScore(currentScore)
     setIsFinished(true)
+
+    // Trigger Confetti Celebration
+    if (currentScore / questions.length >= 0.5) {
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#e11d48', '#a855f7', '#06b6d4', '#10b981'],
+        })
+      } catch {
+        // Fallback gracefully
+      }
+    }
     
     // Save to DB
     setSaving(true)
     try {
-      // Just save to the first selected set for SRS/quiz result tracking, or skip. We'll use the first one for simplicity, or ideally update DB to support multiple sets. For now, use the first selected set.
       if (selectedSets.length > 0) {
         await saveQuizResult(selectedSets[0], currentScore, questions.length)
       }
@@ -192,7 +206,7 @@ export default function QuizPage() {
       onSaveAndExit={handleSaveAndExit}
       onDiscardAndExit={handleDiscardAndExit}
     >
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6 responsive-boundary">
         <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
