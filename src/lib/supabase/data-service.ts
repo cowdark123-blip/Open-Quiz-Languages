@@ -126,14 +126,30 @@ export const fetchVocabSetById = fetchUserVocabSetById
 export async function fetchVocabItems(setId: string): Promise<VocabItem[]> {
   const supabase = createClient()
   try {
+    const { data: { user } } = await supabase.auth.getUser()
     const { data, error } = await supabase
       .from('vocab_items')
-      .select('*')
+      .select('*, user_srs_progress(*)')
       .eq('set_id', setId)
       .order('created_at', { ascending: true })
 
-    if (error || !data) return []
-    return data as VocabItem[]
+    if (error || !data) {
+      const { data: fallbackData } = await supabase
+        .from('vocab_items')
+        .select('*')
+        .eq('set_id', setId)
+        .order('created_at', { ascending: true })
+      return (fallbackData as VocabItem[]) || []
+    }
+    
+    return data.map((item: any) => {
+      const progress = item.user_srs_progress?.find((p: any) => p.user_id === user?.id) || item.user_srs_progress?.[0]
+      return {
+        ...item,
+        srsProgress: progress,
+        user_srs_progress: undefined
+      }
+    }) as VocabItem[]
   } catch {
     return []
   }

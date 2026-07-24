@@ -39,6 +39,8 @@ export interface VocabItem {
   synonyms?: string[] | null
   audio_url?: string | null
   created_at: string
+  is_starred?: boolean
+  srsProgress?: UserSRSProgress
 }
 
 export interface UserSRSProgress {
