@@ -63,7 +63,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     playTTS(text)
   }, [])
 
-  const handleNextCard = useCallback(async (known: boolean) => {
+  const handleNextCard = useCallback((known: boolean) => {
     if (!currentCard) return
 
     if (known) {
@@ -79,13 +79,14 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
           : c
       ))
 
-      await saveSRSProgress({
+      // Fire and forget API call so it doesn't block UI transition
+      saveSRSProgress({
         item_id: currentCard.id,
         repetition: 4,
         interval: 21,
         status: 'mastered',
         next_review_date: nextDate.toISOString()
-      })
+      }).catch(console.error)
 
       setToast(`🎉 Đã đánh dấu thành thạo từ "${currentCard.term}"!`)
       setTimeout(() => setToast(''), 3000)

@@ -66,38 +66,34 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
     playTTS(text)
   }, [])
 
-  const handleGrade = useCallback(
-    async (grade: SRSGrade) => {
+    const handleGrade = useCallback(
+    (grade: SRSGrade) => {
       if (!currentItem) return
       setErrorMsg('')
 
       const result = calculateSM2(grade, currentSM2.interval, currentSM2.repetition, currentSM2.easeFactor)
       
-      try {
-        // Save SM-2 state to Supabase PostgreSQL & update Streak
-        await saveSRSProgress({
-          item_id: currentItem.id,
-          interval: result.interval,
-          repetition: result.repetition,
-          ease_factor: result.easeFactor,
-          next_review_date: result.nextReviewDate,
-          status: result.repetition >= 4 ? 'mastered' : 'learning'
-        })
-        
-        // Update local state IMMEDIATELY for the UI to show '🟢 Đã thành thạo' if mastered
-        if (result.repetition >= 4) {
-          setItems(prevItems => prevItems.map(c => 
-            c.id === currentItem.id 
-              ? { ...c, srsProgress: { ...c.srsProgress, repetition: result.repetition, interval: result.interval, status: 'mastered' } as any }
-              : c
-          ))
-          setToast(`🎉 Đã đánh dấu thành thạo từ "${currentItem.term}"!`)
-          setTimeout(() => setToast(''), 3000)
-        }
-
-      } catch (err: any) {
+      // Save SM-2 state to Supabase PostgreSQL & update Streak in background
+      saveSRSProgress({
+        item_id: currentItem.id,
+        interval: result.interval,
+        repetition: result.repetition,
+        ease_factor: result.easeFactor,
+        next_review_date: result.nextReviewDate,
+        status: result.repetition >= 4 ? 'mastered' : 'learning'
+      }).catch((err: any) => {
         setErrorMsg(err.message || 'Lưu tiến trình thất bại. Vui lòng thử lại.')
-        return
+      })
+      
+      // Update local state IMMEDIATELY for the UI to show '🟢 Đã thành thạo' if mastered
+      if (result.repetition >= 4) {
+        setItems(prevItems => prevItems.map(c => 
+          c.id === currentItem.id 
+            ? { ...c, srsProgress: { ...c.srsProgress, repetition: result.repetition, interval: result.interval, status: 'mastered' } as any }
+            : c
+        ))
+        setToast(`🎉 Đã đánh dấu thành thạo từ "${currentItem.term}"!`)
+        setTimeout(() => setToast(''), 3000)
       }
 
       setReviewedCount((prev) => prev + 1)
