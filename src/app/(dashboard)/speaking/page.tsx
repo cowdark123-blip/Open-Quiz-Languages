@@ -33,7 +33,8 @@ export default function SpeakingPage() {
   const analyserRef = useRef<AnalyserNode | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const animationRef = useRef<number | null>(null)
-  const recognitionRef = useRef<any>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
     if (sets.length > 0 && selectedSets.length === 0) {
@@ -114,35 +115,48 @@ export default function SpeakingPage() {
       setHasRecorded(true)
       setTranscript('')
 
-      // Speech Recognition
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition()
-        recognition.continuous = true
-        recognition.interimResults = true
-        recognition.lang = 'en-US'
-        
-        recognition.onresult = (event: any) => {
-          let currentTranscript = ''
-          for (let i = 0; i < event.results.length; i++) {
-            currentTranscript += event.results[i][0].transcript
-          }
-          setTranscript(currentTranscript)
+      // Use MediaRecorder instead of SpeechRecognition for better compatibility
+      audioChunksRef.current = []
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
         }
-        
-        recognition.onerror = (e: any) => {
-          console.error("Speech recognition error", e.error)
-        }
-        
-        recognition.onend = () => {
-          setIsRecording(false)
-        }
-        
-        recognition.start()
-        recognitionRef.current = recognition
-      } else {
-        alert('Trình duyệt của bạn không hỗ trợ nhận diện giọng nói (Web Speech API). Vui lòng dùng Chrome hoặc Edge.')
       }
+
+      mediaRecorder.onstop = async () => {
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+          const audioData = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve((reader.result as string).split(',')[1])
+            reader.readAsDataURL(audioBlob)
+          })
+          
+          setTranscript('Đang xử lý giọng nói...')
+          try {
+            const res = await fetch('/api/ai/stt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audioData })
+            })
+            const data = await res.json()
+            if (res.ok && data.success && data.text) {
+              setTranscript(data.text)
+            } else {
+              setTranscript('')
+              alert('Không thể nhận diện giọng nói, vui lòng thử lại.')
+            }
+          } catch (err) {
+            setTranscript('')
+            alert('Lỗi kết nối khi nhận diện giọng nói.')
+          }
+        }
+      }
+
+      mediaRecorder.start()
     } catch (e) {
       console.error(e)
       alert('Không thể truy cập Micro.')
@@ -154,8 +168,8 @@ export default function SpeakingPage() {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop())
     }
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
     }
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current)
@@ -340,11 +354,17 @@ export default function SpeakingPage() {
               <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700 min-h-24">
                 <p className="text-slate-300">
                   <span className="font-semibold text-sky-400">Bạn vừa nói: </span>
-                  {transcript || (isRecording ? 'Đang nghe...' : 'Không nhận diện được giọng nói.')}
+                  {transcript === 'Đang xử lý giọng nói...' ? (
+                    <span className="text-slate-400 flex items-center gap-2 inline-flex">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Đang xử lý giọng nói...
+                    </span>
+                  ) : (
+                    transcript || (isRecording ? 'Đang nghe...' : 'Không nhận diện được giọng nói.')
+                  )}
                 </p>
               </div>
 
-              {!isRecording && transcript && !finalScore && (
+              {!isRecording && transcript && transcript !== 'Đang xử lý giọng nói...' && !finalScore && (
                 <button
                   onClick={evaluateSpeaking}
                   disabled={evaluating}
@@ -354,7 +374,7 @@ export default function SpeakingPage() {
                 </button>
               )}
               
-              {!isRecording && !transcript && !finalScore && (
+              {!isRecording && (!transcript || transcript === 'Đang xử lý giọng nói...') && !finalScore && (
                 <div className="text-center text-sm text-slate-400 py-2">
                   Vui lòng thử thu âm lại hoặc nói rõ hơn.
                 </div>

@@ -5,9 +5,6 @@ import { Mic, Send, Bot, User, Loader2, Sparkles, Volume2, RotateCcw } from 'luc
 import { getCurrentUserProfile, loadConversationHistory, saveConversationHistory, deleteConversationHistory, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { playTTS } from '@/lib/tts'
 import InteractiveText from '@/components/InteractiveText'
-import MultiSetSelector from '@/components/MultiSetSelector'
-import { useVocab } from '@/contexts/VocabContext'
-import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -25,8 +22,6 @@ const SCENARIOS = [
 ]
 
 export default function ConversationPage() {
-  const { vocabSets: sets } = useVocab()
-  const [selectedSets, setSelectedSets] = useState<string[]>([])
   const [scenario, setScenario] = useState(SCENARIOS[0])
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -39,12 +34,6 @@ export default function ConversationPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    if (sets.length > 0 && selectedSets.length === 0) {
-      setSelectedSets([sets[0].id])
-    }
-  }, [sets, selectedSets])
 
   useEffect(() => {
     async function fetchBand() {
@@ -173,16 +162,10 @@ export default function ConversationPage() {
         content: m.content
       }))
 
-      let words: string[] = []
-      if (selectedSets.length > 0) {
-        const items = await fetchVocabItemsBySets(selectedSets)
-        words = items.map(i => i.term).slice(0, 10)
-      }
-
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario, messages: contextMessages, targetBand, words })
+        body: JSON.stringify({ scenario, messages: contextMessages, targetBand, words: [] })
       })
 
       if (res.ok) {
@@ -236,14 +219,7 @@ export default function ConversationPage() {
           <p className="text-xs text-slate-400">Luyện phản xạ giao tiếp & Sửa lỗi ngữ pháp</p>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className="hidden md:block">
-            <MultiSetSelector 
-              sets={sets}
-              selectedIds={selectedSets}
-              onChange={(newIds) => setSelectedSets(newIds)}
-              disabled={loading || isRecording}
-            />
-          </div>
+
           <select 
             className="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500 flex-1 md:flex-none"
             value={scenario}
@@ -264,15 +240,6 @@ export default function ConversationPage() {
         </div>
       </div>
       
-      <div className="p-4 bg-slate-900 border-b border-slate-800 md:hidden flex">
-         <MultiSetSelector 
-            sets={sets}
-            selectedIds={selectedSets}
-            onChange={(newIds) => setSelectedSets(newIds)}
-            disabled={loading || isRecording}
-          />
-      </div>
-
       {/* Chat History */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messages.length === 0 && (

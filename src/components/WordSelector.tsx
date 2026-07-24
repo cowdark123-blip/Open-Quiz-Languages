@@ -58,12 +58,15 @@ export default function WordSelector({ items, selectedIds, onChange, disabled }:
           const setTitle = setInfo?.title || 'Từ vựng đã chọn'
           
           return (
-            <div key={setId} className="space-y-3">
-              <h4 className="text-sm font-bold text-slate-400 border-b border-slate-800 pb-1 flex items-center justify-between">
-                <span>{setTitle}</span>
-                <span className="text-[10px] font-normal bg-slate-800 px-2 py-0.5 rounded-full">{groupItems.length} từ</span>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <details key={setId} className="space-y-3 group" open>
+              <summary className="text-sm font-bold text-slate-400 border-b border-slate-800 pb-2 flex items-center justify-between cursor-pointer list-none hover:text-purple-300 transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 group-open:rotate-90 transition-transform">▶</span>
+                  <span>{setTitle}</span>
+                </div>
+                <span className="text-[10px] font-normal bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">{groupItems.length} từ</span>
+              </summary>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                 {groupItems.map(item => {
                   const isSelected = selectedIds.includes(item.id)
                   return (
@@ -91,7 +94,7 @@ export default function WordSelector({ items, selectedIds, onChange, disabled }:
                   )
                 })}
               </div>
-            </div>
+            </details>
           )
         })}
       </div>
