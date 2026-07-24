@@ -1,22 +1,29 @@
-export const playTTS = (text: string, rate = 0.9, lang = 'en') => {
-  if (typeof window === 'undefined') return
+export const playTTS = (text: string, rate = 0.9, lang = 'en'): Promise<void> => {
+  if (typeof window === 'undefined') return Promise.resolve()
 
-  try {
-    // Attempt to use Google Translate TTS via proxy
-    const url = `/api/tts?lang=${lang}&text=${encodeURIComponent(text)}`
-    const audio = new Audio(url)
-    audio.playbackRate = rate
-    audio.play().catch((err) => {
-      console.warn('Google TTS failed, falling back to local speech synthesis', err)
-      fallbackTTS(text, rate, lang)
-    })
-  } catch (error) {
-    fallbackTTS(text, rate, lang)
-  }
+  return new Promise((resolve) => {
+    try {
+      // Attempt to use Google Translate TTS via proxy
+      const url = `/api/tts?lang=${lang}&text=${encodeURIComponent(text)}`
+      const audio = new Audio(url)
+      audio.playbackRate = rate
+      audio.onended = () => resolve()
+      audio.onerror = (err) => {
+        console.warn('Google TTS failed, falling back to local speech synthesis', err)
+        fallbackTTS(text, rate, lang, resolve)
+      }
+      audio.play().catch((err) => {
+        console.warn('Google TTS play failed', err)
+        fallbackTTS(text, rate, lang, resolve)
+      })
+    } catch (error) {
+      fallbackTTS(text, rate, lang, resolve)
+    }
+  })
 }
 
-function fallbackTTS(text: string, rate: number, lang: string) {
-  if (!('speechSynthesis' in window)) return
+function fallbackTTS(text: string, rate: number, lang: string, resolve: () => void) {
+  if (!('speechSynthesis' in window)) return resolve()
   window.speechSynthesis.cancel()
 
   const utterance = new SpeechSynthesisUtterance(text)
@@ -36,6 +43,9 @@ function fallbackTTS(text: string, rate: number, lang: string) {
     const matchingVoices = voices.filter(v => v.lang.startsWith(lang))
     if (matchingVoices.length > 0) utterance.voice = matchingVoices[0]
   }
+
+  utterance.onend = () => resolve()
+  utterance.onerror = () => resolve()
 
   window.speechSynthesis.speak(utterance)
 }

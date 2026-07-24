@@ -9,8 +9,10 @@ import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCc
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
 
+import { useVocab } from '@/contexts/VocabContext'
+
 export default function DictationPage() {
-  const [sets, setSets] = useState<VocabSet[]>([])
+  const { vocabSets: sets, isLoading: contextLoading } = useVocab()
   const [selectedSet, setSelectedSet] = useState<string>('')
   const [items, setItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -27,32 +29,29 @@ export default function DictationPage() {
   const [isLoadingSession, setIsLoadingSession] = useState(true)
   const isSavedRef = React.useRef(false)
 
+
+
   useEffect(() => {
-    loadSets()
-  }, [])
-
-  const loadSets = async () => {
-    setLoading(true)
-    const [userSets, { profile }] = await Promise.all([
-      fetchUserVocabSets(),
-      getCurrentUserProfile()
-    ])
-    
-    if (profile?.target_band) {
-      setTargetBand(profile.target_band)
-      if (profile.target_band === 'mat_goc') setRate(0.85)
-      else if (profile.target_band === 'nang_cao') setRate(1.1)
+    if (sets.length > 0 && !selectedSet) {
+      setSelectedSet(sets[0].id)
+      checkSession(sets[0].id)
     }
+  }, [sets, selectedSet])
 
-    setSets(userSets)
-    if (userSets.length > 0) {
-      setSelectedSet(userSets[0].id)
-      checkSession(userSets[0].id)
-    } else {
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { profile } = await getCurrentUserProfile()
+      
+      if (profile?.target_band) {
+        setTargetBand(profile.target_band)
+        if (profile.target_band === 'co_ban') setRate(0.85)
+        else if (profile.target_band === 'trung_cap') setRate(0.95)
+        else if (profile.target_band === 'nang_cao') setRate(1.1)
+      }
       setIsLoadingSession(false)
     }
-    setLoading(false)
-  }
+    loadProfile()
+  }, [])
 
   const checkSession = async (setId: string) => {
     setIsLoadingSession(true)
@@ -203,10 +202,10 @@ export default function DictationPage() {
     }
   }, [items, currentIndex, selectedSet])
 
-  if ((loading && sets.length === 0) || isLoadingSession) {
+  if (contextLoading || isLoadingSession) {
     return (
       <div className="flex flex-col justify-center items-center py-20 space-y-4">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
         <p className="text-slate-400 text-sm">Đang kiểm tra tiến trình đã lưu...</p>
       </div>
     )

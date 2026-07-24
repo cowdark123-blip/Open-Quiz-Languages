@@ -24,6 +24,7 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
   const [newSetName, setNewSetName] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false)
 
   const isAlreadySaved = isWordSaved(data?.term || word)
 
@@ -120,8 +121,16 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
               <div className="flex items-end gap-3 mb-1">
                 <span className="text-2xl font-black text-white">{data.term}</span>
                 {data.ipa && <span className="text-sm font-mono text-purple-300 italic mb-1">{data.ipa}</span>}
-                <button onClick={() => playTTS(data.term)} className="p-1.5 rounded-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 mb-0.5 transition-colors">
-                  <Volume2 className="w-4 h-4" />
+                <button 
+                  onClick={async () => {
+                    setIsAudioPlaying(true)
+                    await playTTS(data.term)
+                    setIsAudioPlaying(false)
+                  }} 
+                  disabled={isAudioPlaying}
+                  className="p-1.5 rounded-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 mb-0.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAudioPlaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
                 </button>
               </div>
               <p className="text-slate-300 text-sm font-medium">{data.definition}</p>
@@ -131,25 +140,6 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
             <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800/50">
               <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ví dụ ngữ cảnh</span>
               <p className="text-xs text-slate-300 italic">"{data.exampleSentence}"</p>
-            </div>
-
-            <div className="flex gap-2 pb-2 border-b border-slate-800/50">
-              <a 
-                href={`http://tratu.soha.vn/dict/en_vn/${data.term}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-blue-400 text-xs font-bold rounded-lg transition-colors text-center"
-              >
-                Tra trên Soha
-              </a>
-              <a 
-                href={`https://dictionary.cambridge.org/dictionary/english/${data.term}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-lg transition-colors text-center"
-              >
-                Tra trên Cambridge
-              </a>
             </div>
 
             {isAlreadySaved ? (
@@ -225,6 +215,30 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
                 )}
               </div>
             )}
+            
+            <div className="pt-3 mt-3 border-t border-slate-800/50 space-y-2">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Tra từ điển ngoại vi 🌐</div>
+              <div className="flex gap-2">
+                <a 
+                  href={`https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent((data.term || word).toLowerCase())}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-1.5 border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
+                >
+                  <Book className="w-3 h-3" />
+                  Cambridge 📘
+                </a>
+                <a 
+                  href={`http://tracuu.soha.vn/dict/en_vn/${encodeURIComponent((data.term || word).toLowerCase())}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-1.5 border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
+                >
+                  <Book className="w-3 h-3" />
+                  Soha 📙
+                </a>
+              </div>
+            </div>
           </>
         ) : null}
       </div>

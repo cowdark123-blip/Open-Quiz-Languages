@@ -8,8 +8,10 @@ import { BookText, Loader2, Play, CheckCircle2, XCircle } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
 
+import { useVocab } from '@/contexts/VocabContext'
+
 export default function ReadingPage() {
-  const [sets, setSets] = useState<VocabSet[]>([])
+  const { vocabSets: sets, isLoading: contextLoading } = useVocab()
   const [selectedSet, setSelectedSet] = useState<string>('')
   const [vocabItems, setVocabItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -27,24 +29,18 @@ export default function ReadingPage() {
   const isSavedRef = React.useRef(false)
 
   useEffect(() => {
-    loadSets()
-  }, [])
-
-  const loadSets = async () => {
-    setLoading(true)
-    const [userSets, { profile }] = await Promise.all([
-      fetchUserVocabSets(),
-      getCurrentUserProfile()
-    ])
-    
-    if (profile?.target_band) setTargetBand(profile.target_band)
-    
-    setSets(userSets)
-    if (userSets.length > 0) {
-      setSelectedSet(userSets[0].id)
+    if (sets.length > 0 && !selectedSet) {
+      setSelectedSet(sets[0].id)
     }
-    setLoading(false)
-  }
+  }, [sets, selectedSet])
+
+  useEffect(() => {
+    const fetchBand = async () => {
+      const { profile } = await getCurrentUserProfile()
+      if (profile?.target_band) setTargetBand(profile.target_band)
+    }
+    fetchBand()
+  }, [])
 
   useEffect(() => {
     const loadSession = async () => {
@@ -147,7 +143,7 @@ export default function ReadingPage() {
     }
   }, [article, submitted, selectedSet])
 
-  if ((loading && sets.length === 0) || isLoadingSession) {
+  if (contextLoading || isLoadingSession) {
     return (
       <div className="flex flex-col justify-center items-center py-20 space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />

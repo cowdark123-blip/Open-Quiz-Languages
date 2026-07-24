@@ -12,8 +12,10 @@ type QuizQuestion = {
   options: string[]
 }
 
+import { useVocab } from '@/contexts/VocabContext'
+
 export default function QuizPage() {
-  const [sets, setSets] = useState<VocabSet[]>([])
+  const { vocabSets: sets, isLoading: contextLoading } = useVocab()
   const [selectedSet, setSelectedSet] = useState<string>('')
   const [vocabItems, setVocabItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -30,8 +32,10 @@ export default function QuizPage() {
   const isSavedRef = React.useRef(false)
 
   useEffect(() => {
-    loadSets()
-  }, [])
+    if (sets.length > 0 && !selectedSet) {
+      setSelectedSet(sets[0].id)
+    }
+  }, [sets, selectedSet])
 
   useEffect(() => {
     const loadSession = async () => {
@@ -47,16 +51,6 @@ export default function QuizPage() {
     }
     loadSession()
   }, [selectedSet])
-
-  const loadSets = async () => {
-    setLoading(true)
-    const userSets = await fetchUserVocabSets()
-    setSets(userSets)
-    if (userSets.length > 0) {
-      setSelectedSet(userSets[0].id)
-    }
-    setLoading(false)
-  }
 
   const handleStartQuiz = async () => {
     if (!selectedSet) return
@@ -163,7 +157,7 @@ export default function QuizPage() {
     }
   }, [questions, isFinished, selectedSet])
 
-  if ((loading && sets.length === 0) || isLoadingSession) {
+  if (contextLoading || isLoadingSession) {
     return (
       <div className="flex flex-col justify-center items-center py-20 space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
