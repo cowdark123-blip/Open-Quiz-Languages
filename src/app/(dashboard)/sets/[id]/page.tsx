@@ -7,13 +7,15 @@ import {
   fetchVocabSetById,
   fetchVocabItems,
   insertVocabItem,
+  insertVocabItemsBatch,
   updateVocabItem as apiUpdateVocabItem,
   deleteVocabItem as apiDeleteVocabItem,
   updateVocabSet as apiUpdateVocabSet,
   getCurrentUserProfile,
 } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
-import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2, FolderPlus } from 'lucide-react'
+import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2, FolderPlus, FileInput } from 'lucide-react'
+import BulkImportModal from '@/components/BulkImportModal'
 
 export default function SetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -34,6 +36,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
 
   // Item Form State
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<VocabItem | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiErrorMsg, setAiErrorMsg] = useState('')
@@ -207,6 +210,19 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     setIsModalOpen(false)
   }
 
+  const handleBulkImport = async (importedItems: Partial<VocabItem>[]) => {
+    const itemsWithSetId = importedItems.map((item) => ({
+      ...item,
+      set_id: setId,
+    }))
+    const inserted = await insertVocabItemsBatch(itemsWithSetId)
+    if (inserted && inserted.length > 0) {
+      setItems((prev) => [...prev, ...inserted])
+      return true
+    }
+    return false
+  }
+
   const handleDeleteItem = async (itemId: string) => {
     setItems(items.filter((i) => i.id !== itemId))
     await apiDeleteVocabItem(itemId)
@@ -297,13 +313,22 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
       {/* Items Section Header */}
       <div className="flex items-center justify-between pt-2">
         <h3 className="text-lg font-bold text-white">Danh Sách Từ Vựng ({items.length})</h3>
-        <button
-          onClick={handleOpenAddModal}
-          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-md"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Thêm Từ Mới</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs transition-all flex items-center gap-2"
+          >
+            <FileInput className="w-4 h-4 text-purple-400" />
+            <span>Nhập hàng loạt 📥</span>
+          </button>
+          <button
+            onClick={handleOpenAddModal}
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-md"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Thêm Từ Mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Vocab Items Grid */}
@@ -604,6 +629,12 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
       )}
+      {/* Modal: Bulk Import */}
+      <BulkImportModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onImport={handleBulkImport}
+      />
     </div>
   )
 }

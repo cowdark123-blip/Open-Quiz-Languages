@@ -239,6 +239,21 @@ export async function insertVocabItem(item: Partial<VocabItem>): Promise<VocabIt
   }
 }
 
+export async function insertVocabItemsBatch(items: Partial<VocabItem>[]): Promise<VocabItem[]> {
+  const supabase = createClient()
+  try {
+    const { data, error } = await supabase
+      .from('vocab_items')
+      .insert(items)
+      .select()
+
+    if (error || !data) return []
+    return data as VocabItem[]
+  } catch {
+    return []
+  }
+}
+
 export async function updateVocabItem(id: string, updates: Partial<VocabItem>): Promise<boolean> {
   const supabase = createClient()
   try {

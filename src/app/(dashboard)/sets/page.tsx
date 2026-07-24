@@ -8,10 +8,12 @@ import {
   insertVocabSet,
   deleteVocabSet as apiDeleteVocabSet,
   updateVocabSet as apiUpdateVocabSet,
+  insertVocabItemsBatch,
   seedInitialDatabase,
 } from '@/lib/supabase/data-service'
-import { VocabSet } from '@/types/database'
-import { Plus, BookOpen, Trash2, Edit2, Search, FolderPlus, ArrowRight, X, Loader2, Sparkles } from 'lucide-react'
+import { VocabSet, VocabItem } from '@/types/database'
+import { Plus, BookOpen, Trash2, Edit2, Search, FolderPlus, ArrowRight, X, Loader2, Sparkles, FileInput } from 'lucide-react'
+import BulkImportModal from '@/components/BulkImportModal'
 
 function SetsPageContent() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -20,6 +22,8 @@ function SetsPageContent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
+  const [pendingBulkItems, setPendingBulkItems] = useState<Partial<VocabItem>[]>([])
   const searchParams = useSearchParams()
 
   // Form State for Create/Edit Set Modal
@@ -36,6 +40,7 @@ function SetsPageContent() {
     setNewDesc('')
     setNewCategory('IELTS')
     setNewLang('en')
+    setPendingBulkItems([])
     setIsModalOpen(true)
   }
 
@@ -99,7 +104,12 @@ function SetsPageContent() {
       })
 
       if (created) {
-        setSets([created, ...sets])
+        if (pendingBulkItems.length > 0) {
+          const itemsWithSet = pendingBulkItems.map((item) => ({ ...item, set_id: created.id }))
+          await insertVocabItemsBatch(itemsWithSet)
+          created.item_count = pendingBulkItems.length
+        }
+        setSets([{ ...created }, ...sets])
       } else {
         await loadData()
       }
@@ -107,6 +117,7 @@ function SetsPageContent() {
 
     setNewTitle('')
     setNewDesc('')
+    setPendingBulkItems([])
     setCreating(false)
     setIsModalOpen(false)
   }
@@ -359,6 +370,27 @@ function SetsPageContent() {
                 </div>
               </div>
 
+              {!editingSet && (
+                <div className="p-3.5 rounded-2xl bg-purple-950/30 border border-purple-800/40 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-white block">Nhập từ vựng hàng loạt (Tùy chọn)</span>
+                    <span className="text-[11px] text-slate-400">
+                      {pendingBulkItems.length > 0
+                        ? `Đã chuẩn bị ${pendingBulkItems.length} từ vựng`
+                        : 'Dán từ Excel, Word hoặc Quizlet'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkModalOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-bold transition-all flex items-center gap-1.5"
+                  >
+                    <FileInput className="w-3.5 h-3.5" />
+                    <span>{pendingBulkItems.length > 0 ? 'Sửa dữ liệu' : 'Nhập hàng loạt 📥'}</span>
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
@@ -380,6 +412,15 @@ function SetsPageContent() {
           </div>
         </div>
       )}
+      {/* Modal: Bulk Import */}
+      <BulkImportModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onImport={async (items) => {
+          setPendingBulkItems(items)
+          return true
+        }}
+      />
     </div>
   )
 }
