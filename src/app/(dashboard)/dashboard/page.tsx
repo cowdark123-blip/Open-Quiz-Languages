@@ -16,7 +16,6 @@ export default function DashboardPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
-  const [dueSrsCount, setDueSrsCount] = useState(0)
   const [userProfile, setUserProfile] = useState<{
     displayName: string
     streak: number
@@ -24,6 +23,7 @@ export default function DashboardPage() {
     displayName: 'Học Viên',
     streak: 1,
   })
+  // We can remove dueSrsCount from the main page state since the widget will handle it.
 
   const loadDashboardData = async () => {
     setLoading(true)
@@ -42,9 +42,6 @@ export default function DashboardPage() {
     const userSets = await fetchUserVocabSets(userId)
     setSets(userSets)
 
-    // Calculate real due SRS items from Supabase
-    const dueItems = await fetchDueSRSItems()
-    setDueSrsCount(dueItems.length)
     setLoading(false)
   }
 
@@ -62,52 +59,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Top Banner: Daily Review Alert or Congratulation */}
-      <div className="glass-panel p-6 rounded-3xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-slate-900/80 to-indigo-950/40 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
-        <div className="space-y-2 text-left z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-semibold">
-            <Clock className="w-3.5 h-3.5 text-purple-400" />
-            <span>Thuật toán Lặp lại Ngắt quãng SRS SM-2</span>
-          </div>
+      <SRSDashboardWidget displayName={userProfile.displayName} />
 
-          {dueSrsCount > 0 ? (
-            <>
-              <h2 className="text-2xl font-black text-white">
-                Chào {userProfile.displayName}! Hôm nay bạn có {dueSrsCount} từ vựng cần ôn tập
-              </h2>
-              <p className="text-slate-400 text-xs md:text-sm max-w-xl">
-                Ôn tập đúng thời điểm ngắt quãng giúp chuyển từ vựng vào trí nhớ dài hạn.
-              </p>
-            </>
-          ) : (
-            <>
-              <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                <span>Bạn đã hoàn thành toàn bộ bài ôn tập hôm nay! 🎉</span>
-              </h2>
-              <p className="text-slate-400 text-xs md:text-sm max-w-xl">
-                Tuyệt vời! Tất cả từ vựng đã được thuật toán SM-2 hẹn lịch ôn tập vào các ngày tiếp theo.
-              </p>
-            </>
-          )}
-        </div>
-
-        {dueSrsCount > 0 ? (
-          <Link
-            href="/srs"
-            className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-500/25 transition-all transform hover:scale-105 shrink-0 flex items-center gap-2"
-          >
-            <Play className="w-4 h-4 fill-white" />
-            <span>Bắt Đầu Bài Ôn Tập SRS ({dueSrsCount})</span>
-          </Link>
-        ) : (
-          <Link
-            href="/sets"
-            className="px-6 py-3.5 rounded-2xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-bold text-sm transition-all shrink-0 flex items-center gap-2"
-          >
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>Xem Danh Sách Từ Vựng</span>
-          </Link>
-        )}
-      </div>
 
       {/* Ecosystem Navigation Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -281,3 +234,75 @@ export default function DashboardPage() {
     </div>
   )
 }
+
+function SRSDashboardWidget({ displayName }: { displayName: string }) {
+  const [dueSrsCount, setDueSrsCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      const dueItems = await fetchDueSRSItems()
+      if (mounted) setDueSrsCount(dueItems.length)
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
+  if (dueSrsCount === null) {
+    return (
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 bg-slate-900/50 flex items-center justify-center h-32">
+        <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="glass-panel p-6 rounded-3xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-slate-900/80 to-indigo-950/40 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
+      <div className="space-y-2 text-left z-10">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-semibold">
+          <Clock className="w-3.5 h-3.5 text-purple-400" />
+          <span>Thuật toán Lặp lại Ngắt quãng SRS SM-2</span>
+        </div>
+
+        {dueSrsCount > 0 ? (
+          <>
+            <h2 className="text-2xl font-black text-white">
+              Chào {displayName}! Hôm nay bạn có {dueSrsCount} từ vựng cần ôn tập
+            </h2>
+            <p className="text-slate-400 text-xs md:text-sm max-w-xl">
+              Ôn tập đúng thời điểm ngắt quãng giúp chuyển từ vựng vào trí nhớ dài hạn.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-black text-white flex items-center gap-2">
+              <span>Bạn đã hoàn thành toàn bộ bài ôn tập hôm nay! 🎉</span>
+            </h2>
+            <p className="text-slate-400 text-xs md:text-sm max-w-xl">
+              Tuyệt vời! Tất cả từ vựng đã được thuật toán SM-2 hẹn lịch ôn tập vào các ngày tiếp theo.
+            </p>
+          </>
+        )}
+      </div>
+
+      {dueSrsCount > 0 ? (
+        <Link
+          href="/srs"
+          className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-500/25 transition-all transform hover:scale-105 shrink-0 flex items-center gap-2"
+        >
+          <Play className="w-4 h-4 fill-white" />
+          <span>Bắt Đầu Bài Ôn Tập SRS ({dueSrsCount})</span>
+        </Link>
+      ) : (
+        <Link
+          href="/sets"
+          className="px-6 py-3.5 rounded-2xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-bold text-sm transition-all shrink-0 flex items-center gap-2"
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>Xem Danh Sách Từ Vựng</span>
+        </Link>
+      )}
+    </div>
+  )
+}
+

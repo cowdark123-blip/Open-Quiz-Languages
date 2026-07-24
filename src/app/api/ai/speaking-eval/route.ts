@@ -26,16 +26,20 @@ Target Sentence: "${targetSentence || ''}"
 
 You MUST output ONLY a valid JSON object matching this exact schema without markdown triple backticks:
 {
-  "accuracyScore": 92,
-  "prosodyScore": 88,
-  "overallScore": 90,
-  "feedbackText": "Nhận xét ngắn gọn bằng Tiếng Việt về phát âm, trọng âm và ngữ điệu.",
-  "wordAnalysis": [
-    { "word": "WordText", "status": "good", "note": "Ghi chú ngắn về âm đọc" }
-  ]
-}
-
-For "wordAnalysis", assign status: "good" (accuracy >= 85), "average" (60-84), or "poor" (< 60).`
+  "targetWord": "Target word or sentence",
+  "ipaStandard": "Standard IPA transcription",
+  "overallAccuracy": 75,
+  "syllableBreakdown": [
+    {
+      "syllable": "Syllable text",
+      "ipa": "Syllable IPA",
+      "status": "correct", // "correct" | "incorrect" | "warning"
+      "isStressed": true,
+      "feedback": "Specific feedback in Vietnamese"
+    }
+  ],
+  "phoneticAdvice": "Overall advice in Vietnamese"
+}`
 
     let finalTranscript = userTranscript?.trim() || ''
 

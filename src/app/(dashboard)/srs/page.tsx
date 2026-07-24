@@ -76,13 +76,16 @@ export default function GlobalSRSPage() {
       setReviewedCount((prev) => prev + 1)
       setIsAnswerRevealed(false)
 
-      if (currentIndex + 1 < items.length) {
-        setCurrentIndex((prev) => prev + 1)
-      } else {
+      const newItems = items.filter(i => i.id !== currentItem.id)
+      setItems(newItems)
+
+      if (newItems.length === 0) {
         setIsCompleted(true)
+      } else {
+        setCurrentIndex(prev => prev >= newItems.length ? 0 : prev)
       }
     },
-    [currentIndex, items.length, currentSM2, currentItem]
+    [currentIndex, items, currentSM2, currentItem]
   )
 
   const handleRestart = () => {
@@ -162,7 +165,8 @@ export default function GlobalSRSPage() {
     )
   }
 
-  const progressPercent = Math.round(((currentIndex + (isCompleted ? 1 : 0)) / items.length) * 100)
+  const totalItems = items.length + reviewedCount
+  const progressPercent = totalItems > 0 ? Math.round((reviewedCount / totalItems) * 100) : 100
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto px-4 py-4">
@@ -196,7 +200,7 @@ export default function GlobalSRSPage() {
         <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
           <span>Tiến trình bài ôn SRS hôm nay</span>
           <span className="text-purple-300 font-bold">
-            {currentIndex + 1} / {items.length} Từ
+            Còn lại: {items.length} Từ
           </span>
         </div>
         <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">

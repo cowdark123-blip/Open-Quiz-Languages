@@ -3,18 +3,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { Mic, Square, Loader2, RotateCcw, AlertCircle } from 'lucide-react'
 
-interface WordAnalysis {
-  word: string
-  status: 'good' | 'average' | 'poor'
-  note?: string
+interface SyllableBreakdown {
+  syllable: string
+  ipa: string
+  status: 'correct' | 'incorrect' | 'warning'
+  isStressed: boolean
+  feedback: string
 }
 
 interface EvaluationResult {
-  accuracyScore: number
-  prosodyScore: number
-  overallScore: number
-  feedbackText: string
-  wordAnalysis: WordAnalysis[]
+  targetWord: string
+  ipaStandard: string
+  overallAccuracy: number
+  syllableBreakdown: SyllableBreakdown[]
+  phoneticAdvice: string
 }
 
 interface AIPronunciationTrainerProps {
@@ -254,38 +256,46 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
 
       {/* State 4: Results */}
       {result && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20">
-              <div className="text-xl font-black text-purple-300">{result.accuracyScore}%</div>
-              <div className="text-[10px] text-slate-400 font-medium">Chính xác (Accuracy)</div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+            <div>
+              <div className="text-xl font-black text-purple-300">{result.overallAccuracy}%</div>
+              <div className="text-[10px] text-slate-400 font-medium">Độ chính xác (Accuracy)</div>
             </div>
-            <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-              <div className="text-xl font-black text-cyan-300">{result.prosodyScore}%</div>
-              <div className="text-[10px] text-slate-400 font-medium">Ngữ điệu (Prosody)</div>
+            <div className="text-right">
+              <div className="text-sm font-bold text-white">{result.targetWord}</div>
+              <div className="text-xs font-mono text-purple-300">{result.ipaStandard}</div>
             </div>
           </div>
 
           <p className="text-xs text-slate-200 bg-slate-950/80 p-3 rounded-xl border border-slate-800 leading-relaxed">
-            💬 <strong>Nhận xét AI:</strong> {result.feedbackText}
+            💬 <strong>Lời khuyên AI:</strong> {result.phoneticAdvice}
           </p>
 
-          {/* Color-coded Word Analysis */}
-          {result.wordAnalysis && result.wordAnalysis.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {result.wordAnalysis.map((w, idx) => {
+          {/* Color-coded Syllable Analysis */}
+          {result.syllableBreakdown && result.syllableBreakdown.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-2">
+              {result.syllableBreakdown.map((s, idx) => {
                 let badge = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                if (w.status === 'average') badge = 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                if (w.status === 'poor') badge = 'bg-red-500/20 text-red-300 border-red-500/30'
+                if (s.status === 'warning') badge = 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                if (s.status === 'incorrect') badge = 'bg-red-500/20 text-red-300 border-red-500/30'
 
                 return (
-                  <span
-                    key={idx}
-                    title={w.note || w.word}
-                    className={`px-2 py-0.5 rounded text-xs font-semibold border ${badge}`}
-                  >
-                    {w.word}
-                  </span>
+                  <div key={idx} className="flex items-center gap-1.5 group relative">
+                    {idx > 0 && <span className="text-slate-600 font-bold">-</span>}
+                    <div className="relative">
+                      <span
+                        className={`px-3 py-1.5 rounded-lg text-sm font-bold border cursor-help transition-all flex items-center justify-center ${badge}`}
+                      >
+                        {s.isStressed ? <span className="uppercase">{s.syllable}'</span> : s.syllable}
+                      </span>
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 rounded-lg bg-slate-900 border border-slate-700 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 pointer-events-none text-center">
+                        <div className="text-xs font-mono text-purple-300 mb-1">IPA: {s.ipa}</div>
+                        <div className="text-[10px] text-slate-300 leading-snug">{s.feedback}</div>
+                      </div>
+                    </div>
+                  </div>
                 )
               })}
             </div>
