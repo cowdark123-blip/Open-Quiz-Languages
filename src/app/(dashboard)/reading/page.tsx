@@ -233,14 +233,16 @@ export default function ReadingPage() {
                 </button>
               </div>
             </div>
-          ) : article ? (
-            <div className="glass-card p-8 rounded-3xl border border-slate-800 relative">
-              <div className="absolute top-4 right-4 text-xs font-bold bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full border border-cyan-500/20">
-                AI Generated
+          ) : (
+            article && (
+              <div className="glass-card p-8 rounded-3xl border border-slate-800 relative">
+                <div className="absolute top-4 right-4 text-xs font-bold bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full border border-cyan-500/20">
+                  AI Generated
+                </div>
+                <h3 className="text-2xl font-black text-white mb-6">Reading Comprehension</h3>
+                {renderArticle()}
               </div>
-              <h3 className="text-2xl font-black text-white mb-6">Reading Comprehension</h3>
-              {renderArticle()}
-            </div>
+            )
           )}
 
           {questions.length > 0 && (
@@ -304,12 +306,14 @@ export default function ReadingPage() {
                 </button>
               )}
             </div>
-          ) : !loading && !generating ? (
+          )}
+          
+          {!pendingSession && !article && !loading && !generating && (
             <div className="glass-card p-10 text-center rounded-3xl border border-slate-800 space-y-4">
                <BookText className="w-12 h-12 text-slate-600 mx-auto" />
                <p className="text-slate-400">Bấm nút <span className="text-cyan-400 font-bold">Tạo Bài Đọc</span> để AI viết một bài báo ngắn bằng tiếng Anh dựa trên bộ từ vựng của bạn.</p>
             </div>
-          ) : null}
+          )}
         </div>
 
         <div className="md:col-span-1">

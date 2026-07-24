@@ -259,8 +259,9 @@ export default function GrammarPage() {
                 </button>
               </div>
             </div>
-          ) : practiceQuestions.length > 0 ? (
-            <div className="glass-panel p-6 md:p-8 rounded-3xl border border-slate-800 animate-in fade-in">
+          ) : (
+            practiceQuestions.length > 0 && (
+              <div className="glass-panel p-6 md:p-8 rounded-3xl border border-slate-800 animate-in fade-in">
               <h3 className="text-xl font-bold text-white mb-6">Bài tập: {selectedTopic}</h3>
               <div className="space-y-8">
                 {practiceQuestions.map((q, idx) => (
@@ -327,12 +328,15 @@ export default function GrammarPage() {
                 </button>
               )}
             </div>
-          ) : !generating ? (
+            )
+          )}
+          
+          {!pendingSession && practiceQuestions.length === 0 && !generating && (
             <div className="glass-card p-10 text-center rounded-3xl border border-slate-800 space-y-4">
                <PenTool className="w-12 h-12 text-slate-600 mx-auto" />
                <p className="text-slate-400">Bấm nút <span className="text-emerald-400 font-bold">Tạo Bài Tập</span> để hệ thống sinh ra bài tập ngữ pháp.</p>
             </div>
-          ) : null}
+          )}
         </div>
       )}
     </div>
