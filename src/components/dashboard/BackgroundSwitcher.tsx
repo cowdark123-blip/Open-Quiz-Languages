@@ -14,30 +14,21 @@ const PRESET_CATEGORIES = [
   {
     category: 'Study with me',
     items: [
-      { id: 'youtube:-R22M-x9E60', title: 'Study with me 1' },
-      { id: 'youtube:aW9yY-B3Lfc', title: 'Study with me 2' },
-      { id: 'youtube:lTRiuFIWV54', title: 'Study with me 3' },
-      { id: 'youtube:7X0N70W-rT4', title: 'Study with me 4' },
+      { id: 'youtube:lTRiuFIWV54', title: 'Lofi Girl Live' },
+      { id: 'youtube:kgx4WGK0oNU', title: 'Jazz Relaxing' },
+      { id: 'youtube:5qap5aO4i9A', title: 'Lofi Hip Hop' },
+      { id: 'youtube:DWcJFNfaw9c', title: 'Lofi Relax' },
     ],
   },
   {
-    category: '4K Live Wallpaper 1 hour',
+    category: '4K Live Wallpaper',
     items: [
-      { id: 'youtube:qRTVg8HHzUo', title: 'Wallpaper 1' },
-      { id: 'youtube:XqZsoesa55w', title: 'Wallpaper 2' },
-      { id: 'youtube:9r8d_7G9UQA', title: 'Wallpaper 3' },
-      { id: 'youtube:Lp-Y7X-r1o8', title: 'Wallpaper 4' },
+      { id: 'youtube:qRTVg8HHzUo', title: '4K Landscape' },
+      { id: 'youtube:XqZsoesa55w', title: 'Ocean Aquarium' },
+      { id: 'youtube:vW1hK4lJzqk', title: 'Cozy Rain' },
+      { id: 'youtube:V-_O7nl0Ii0', title: 'Fireplace' },
     ],
-  },
-  {
-    category: '4K Anime Wallpaper 1 hour',
-    items: [
-      { id: 'youtube:7NosQC8vT3s', title: 'Anime 1' },
-      { id: 'youtube:Zz_Z7p-1_X4', title: 'Anime 2' },
-      { id: 'youtube:r6-E8i9mRFI', title: 'Anime 3' },
-      { id: 'youtube:68c_VpP3-sQ', title: 'Anime 4' },
-    ],
-  },
+  }
 ]
 
 export function BackgroundSwitcher({ isOpen, onClose }: BackgroundSwitcherProps) {

@@ -75,7 +75,7 @@ export default function DashboardLayout({
   ]
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-transparent text-slate-100 flex flex-col md:flex-row">
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 glass-panel border-r border-slate-800/80 p-6 flex flex-col justify-between shrink-0">
         <div>
