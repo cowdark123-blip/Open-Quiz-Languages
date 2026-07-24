@@ -8,12 +8,14 @@ import { shuffleArray } from '@/lib/random'
 import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw, Sparkles, XCircle } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
+import MultiSetSelector from '@/components/MultiSetSelector'
+import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 
 import { useVocab } from '@/contexts/VocabContext'
 
 export default function DictationPage() {
   const { vocabSets: sets, isLoading: contextLoading } = useVocab()
-  const [selectedSet, setSelectedSet] = useState<string>('')
+  const [selectedSets, setSelectedSets] = useState<string[]>([])
   const [items, setItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -32,11 +34,11 @@ export default function DictationPage() {
 
 
   useEffect(() => {
-    if (sets.length > 0 && !selectedSet) {
-      setSelectedSet(sets[0].id)
-      checkSession(sets[0].id)
+    if (sets.length > 0 && selectedSets.length === 0) {
+      setSelectedSets([sets[0].id])
+      checkSession([sets[0].id])
     }
-  }, [sets, selectedSet])
+  }, [sets, selectedSets])
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -53,9 +55,11 @@ export default function DictationPage() {
     loadProfile()
   }, [])
 
-  const checkSession = async (setId: string) => {
+  const checkSession = async (setIds: string[]) => {
+    if (setIds.length === 0) return
     setIsLoadingSession(true)
-    const sessionData = await loadActiveSession('dictation', setId)
+    const resourceId = setIds.slice().sort().join(',')
+    const sessionData = await loadActiveSession('dictation', resourceId)
     if (sessionData && sessionData.items && sessionData.items.length > 0) {
       setPendingSession(sessionData)
     } else {
@@ -65,12 +69,13 @@ export default function DictationPage() {
     setIsLoadingSession(false)
   }
 
-  const loadItems = async (setId: string, forceNew: boolean = false) => {
+  const loadItems = async (setIds: string[], forceNew: boolean = false) => {
+    if (setIds.length === 0) return
     setPendingSession(null)
     setLoadingAi(true)
     setErrorMsg('')
     setItems([])
-    const fetched = await fetchVocabItems(setId)
+    const fetched = await fetchVocabItemsBySets(setIds)
     if (fetched.length === 0) {
       setErrorMsg('Bộ từ vựng trống. Hãy thêm từ vựng để tạo bài kiểm tra nhé!')
       setItems([])
@@ -110,11 +115,11 @@ export default function DictationPage() {
     setLoadingAi(false)
   }
 
-  const handleSetChange = (setId: string) => {
-    setSelectedSet(setId)
+  const handleSetChange = (newIds: string[]) => {
+    setSelectedSets(newIds)
     setItems([])
     setErrorMsg('')
-    checkSession(setId)
+    checkSession(newIds)
   }
 
   const playAudio = (isSlow: boolean = false) => {
@@ -170,15 +175,17 @@ export default function DictationPage() {
       setChecked(false)
       setDiffResult([])
     } else {
-      await deleteActiveSession('dictation', selectedSet)
+      const resourceId = selectedSets.slice().sort().join(',')
+      await deleteActiveSession('dictation', resourceId)
       alert('Bạn đã hoàn thành bài luyện tập!')
-      handleSetChange(selectedSet)
+      handleSetChange(selectedSets)
     }
   }
 
   const handleSaveAndExit = async () => {
     isSavedRef.current = true
-    await saveActiveSession('dictation', selectedSet, {
+    const resourceId = selectedSets.slice().sort().join(',')
+    await saveActiveSession('dictation', resourceId, {
       items,
       currentIndex,
       input,
@@ -190,17 +197,19 @@ export default function DictationPage() {
 
   const handleDiscardAndExit = async () => {
     isSavedRef.current = true
-    await deleteActiveSession('dictation', selectedSet)
+    const resourceId = selectedSets.slice().sort().join(',')
+    await deleteActiveSession('dictation', resourceId)
     window.history.go(-2)
   }
 
   useEffect(() => {
     return () => {
       if (!isSavedRef.current && items.length > 0 && currentIndex < items.length) {
-        deleteActiveSession('dictation', selectedSet)
+        const resourceId = selectedSets.slice().sort().join(',')
+        deleteActiveSession('dictation', resourceId)
       }
     }
-  }, [items, currentIndex, selectedSet])
+  }, [items, currentIndex, selectedSets])
 
   if (contextLoading || isLoadingSession) {
     return (
@@ -228,19 +237,16 @@ export default function DictationPage() {
         </div>
         
         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-          <select 
-            className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 outline-none w-full md:w-64 focus:border-amber-500"
-            value={selectedSet}
-            onChange={(e) => handleSetChange(e.target.value)}
-          >
-            {sets.map(set => (
-              <option key={set.id} value={set.id}>{set.title}</option>
-            ))}
-          </select>
+          <MultiSetSelector 
+            sets={sets}
+            selectedIds={selectedSets}
+            onChange={handleSetChange}
+            disabled={items.length > 0}
+          />
           <button 
-            onClick={() => loadItems(selectedSet, true)}
-            disabled={loadingAi}
-            className="w-full md:w-auto px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-sm font-bold transition-all flex items-center justify-center gap-2"
+            onClick={() => loadItems(selectedSets, true)}
+            disabled={loadingAi || selectedSets.length === 0}
+            className="w-full md:w-auto px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2"
           >
             {loadingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             Tạo bài mới 🔄
@@ -274,7 +280,7 @@ export default function DictationPage() {
               Tiếp Tục Bài Cũ
             </button>
             <button
-              onClick={() => loadItems(selectedSet, true)}
+              onClick={() => loadItems(selectedSets, true)}
               className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
             >
               Tạo Bài Mới (Xóa cũ)
@@ -291,7 +297,7 @@ export default function DictationPage() {
             <p className="text-slate-400 text-sm">Hệ thống sẽ tạo các câu ví dụ từ bộ từ vựng để bạn luyện nghe chép chính tả.</p>
           </div>
           <button
-            onClick={() => loadItems(selectedSet, true)}
+            onClick={() => loadItems(selectedSets, true)}
             className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 mx-auto"
           >
             <Sparkles className="w-5 h-5" />

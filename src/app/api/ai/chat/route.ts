@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { scenario, messages, targetBand } = await req.json()
+    const { scenario, messages, targetBand, words } = await req.json()
 
     if (!scenario || !messages) {
       return NextResponse.json({ error: 'Missing scenario or messages' }, { status: 400 })
@@ -31,6 +31,8 @@ export async function POST(req: Request) {
         difficultyInstruction = '\nDIFFICULTY LEVEL (A2-B1): Use common vocabulary and simple compound sentences.'
     }
 
+    const wordsInstruction = words && words.length > 0 ? `\nTry to naturally include some of these vocabulary words in your replies if possible: ${words.join(', ')}.` : ''
+
     const systemPrompt = `You are an AI English tutor playing a roleplay game.
 Scenario: ${scenario}
 
@@ -40,6 +42,7 @@ Additionally, as an English tutor, you must analyze the user's LAST message.
 If they made grammatical errors, provide a brief correction in Vietnamese.
 If their sentence is grammatically correct but could sound more native/natural, provide a suggestion.
 ${difficultyInstruction}
+${wordsInstruction}
 
 You MUST respond in strict JSON format:
 {

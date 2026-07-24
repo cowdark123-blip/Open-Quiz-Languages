@@ -7,12 +7,14 @@ import { shuffleArray } from '@/lib/random'
 import { BookText, Loader2, Play, CheckCircle2, XCircle } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
+import MultiSetSelector from '@/components/MultiSetSelector'
+import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 
 import { useVocab } from '@/contexts/VocabContext'
 
 export default function ReadingPage() {
   const { vocabSets: sets, isLoading: contextLoading } = useVocab()
-  const [selectedSet, setSelectedSet] = useState<string>('')
+  const [selectedSets, setSelectedSets] = useState<string[]>([])
   const [vocabItems, setVocabItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -29,10 +31,10 @@ export default function ReadingPage() {
   const isSavedRef = React.useRef(false)
 
   useEffect(() => {
-    if (sets.length > 0 && !selectedSet) {
-      setSelectedSet(sets[0].id)
+    if (sets.length > 0 && selectedSets.length === 0) {
+      setSelectedSets([sets[0].id])
     }
-  }, [sets, selectedSet])
+  }, [sets, selectedSets])
 
   useEffect(() => {
     const fetchBand = async () => {
@@ -44,23 +46,24 @@ export default function ReadingPage() {
 
   useEffect(() => {
     const loadSession = async () => {
-      if (!selectedSet) return
+      if (selectedSets.length === 0) return
       setIsLoadingSession(true)
-      const sessionData = await loadActiveSession('reading', selectedSet)
+      const resourceId = selectedSets.slice().sort().join(',')
+      const sessionData = await loadActiveSession('reading', resourceId)
       if (sessionData && sessionData.article) {
         setPendingSession(sessionData)
       } else {
         setPendingSession(null)
       }
-      const items = await fetchVocabItems(selectedSet)
+      const items = await fetchVocabItemsBySets(selectedSets)
       setVocabItems(items)
       setIsLoadingSession(false)
     }
     loadSession()
-  }, [selectedSet])
+  }, [selectedSets])
 
   const handleGenerate = async () => {
-    if (!selectedSet) return
+    if (selectedSets.length === 0) return
     setPendingSession(null)
     setGenerating(true)
     setArticle('')
@@ -70,7 +73,7 @@ export default function ReadingPage() {
     setErrorMsg('')
 
     try {
-      const items = await fetchVocabItems(selectedSet)
+      const items = await fetchVocabItemsBySets(selectedSets)
       
       if (items.length === 0) {
         setErrorMsg('Bộ từ vựng trống. Hãy thêm từ vựng để tạo bài đọc hiểu nhé!')
@@ -91,7 +94,8 @@ export default function ReadingPage() {
         const data = await res.json()
         setArticle(data.article)
         setQuestions(data.questions)
-        await saveActiveSession('reading', selectedSet, {
+        const resourceId = selectedSets.slice().sort().join(',')
+        await saveActiveSession('reading', resourceId, {
           article: data.article,
           questions: data.questions,
           answers: {},
@@ -119,7 +123,8 @@ export default function ReadingPage() {
 
   const handleSaveAndExit = async () => {
     isSavedRef.current = true
-    await saveActiveSession('reading', selectedSet, {
+    const resourceId = selectedSets.slice().sort().join(',')
+    await saveActiveSession('reading', resourceId, {
       article,
       questions,
       answers,
@@ -130,7 +135,8 @@ export default function ReadingPage() {
 
   const handleDiscardAndExit = async () => {
     isSavedRef.current = true
-    await deleteActiveSession('reading', selectedSet)
+    const resourceId = selectedSets.slice().sort().join(',')
+    await deleteActiveSession('reading', resourceId)
     window.history.go(-2)
   }
 
@@ -138,10 +144,11 @@ export default function ReadingPage() {
     return () => {
       if (!isSavedRef.current && article !== '' && !submitted) {
         // Cleanup if unmounted unexpectedly
-        deleteActiveSession('reading', selectedSet)
+        const resourceId = selectedSets.slice().sort().join(',')
+        deleteActiveSession('reading', resourceId)
       }
     }
-  }, [article, submitted, selectedSet])
+  }, [article, submitted, selectedSets])
 
   if (contextLoading || isLoadingSession) {
     return (
@@ -172,23 +179,20 @@ export default function ReadingPage() {
           {loading ? (
             <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
           ) : (
-            <select 
-              className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none flex-1 md:w-64"
-              value={selectedSet}
-              onChange={(e) => {
-                setSelectedSet(e.target.value)
+            <MultiSetSelector 
+              sets={sets}
+              selectedIds={selectedSets}
+              onChange={(newIds) => {
+                setSelectedSets(newIds)
                 setErrorMsg('')
               }}
-            >
-              {sets.map(set => (
-                <option key={set.id} value={set.id}>{set.title}</option>
-              ))}
-            </select>
+              disabled={generating || (article !== '' && !submitted)}
+            />
           )}
           
           <button 
             onClick={handleGenerate}
-            disabled={loading || generating || !selectedSet}
+            disabled={loading || generating || selectedSets.length === 0}
             className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold rounded-xl flex items-center gap-2 whitespace-nowrap transition-all"
           >
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
@@ -293,7 +297,8 @@ export default function ReadingPage() {
                 <button
                   onClick={async () => {
                     setSubmitted(true)
-                    await deleteActiveSession('reading', selectedSet)
+                    const resourceId = selectedSets.slice().sort().join(',')
+                    await deleteActiveSession('reading', resourceId)
                     await checkAndUpdateStreak()
                     if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
                   }}

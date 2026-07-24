@@ -6,6 +6,8 @@ import { VocabSet, VocabItem } from '@/types/database'
 import { shuffleArray } from '@/lib/random'
 import { Trophy, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
+import MultiSetSelector from '@/components/MultiSetSelector'
+import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 
 type QuizQuestion = {
   vocab: VocabItem
@@ -16,7 +18,7 @@ import { useVocab } from '@/contexts/VocabContext'
 
 export default function QuizPage() {
   const { vocabSets: sets, isLoading: contextLoading } = useVocab()
-  const [selectedSet, setSelectedSet] = useState<string>('')
+  const [selectedSets, setSelectedSets] = useState<string[]>([])
   const [vocabItems, setVocabItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
   
@@ -32,16 +34,17 @@ export default function QuizPage() {
   const isSavedRef = React.useRef(false)
 
   useEffect(() => {
-    if (sets.length > 0 && !selectedSet) {
-      setSelectedSet(sets[0].id)
+    if (sets.length > 0 && selectedSets.length === 0) {
+      setSelectedSets([sets[0].id])
     }
-  }, [sets, selectedSet])
+  }, [sets, selectedSets])
 
   useEffect(() => {
     const loadSession = async () => {
-      if (!selectedSet) return
+      if (selectedSets.length === 0) return
       setIsLoadingSession(true)
-      const sessionData = await loadActiveSession('quiz', selectedSet)
+      const resourceId = selectedSets.slice().sort().join(',')
+      const sessionData = await loadActiveSession('quiz', resourceId)
       if (sessionData && sessionData.questions && sessionData.questions.length > 0) {
         setPendingSession(sessionData)
       } else {
@@ -50,10 +53,11 @@ export default function QuizPage() {
       setIsLoadingSession(false)
     }
     loadSession()
-  }, [selectedSet])
+  }, [selectedSets])
 
   const handleStartQuiz = async () => {
-    if (!selectedSet) return
+    if (selectedSets.length === 0) return
+    const resourceId = selectedSets.slice().sort().join(',')
     setPendingSession(null)
     setLoading(true)
     setQuestions([])
@@ -62,7 +66,7 @@ export default function QuizPage() {
     setCurrentIndex(0)
     setScore(0)
 
-    const items = await fetchVocabItems(selectedSet)
+    const items = await fetchVocabItemsBySets(selectedSets)
     setVocabItems(items)
 
     if (items.length < 4) {
@@ -87,7 +91,7 @@ export default function QuizPage() {
     setQuestions(generatedQuestions)
     setLoading(false)
     // Optional: save immediately on start
-    await saveActiveSession('quiz', selectedSet, {
+    await saveActiveSession('quiz', resourceId, {
       questions: generatedQuestions,
       currentIndex: 0,
       answers: {},
@@ -122,8 +126,12 @@ export default function QuizPage() {
     // Save to DB
     setSaving(true)
     try {
-      await saveQuizResult(selectedSet, currentScore, questions.length)
-      await deleteActiveSession('quiz', selectedSet)
+      // Just save to the first selected set for SRS/quiz result tracking, or skip. We'll use the first one for simplicity, or ideally update DB to support multiple sets. For now, use the first selected set.
+      if (selectedSets.length > 0) {
+        await saveQuizResult(selectedSets[0], currentScore, questions.length)
+      }
+      const resourceId = selectedSets.slice().sort().join(',')
+      await deleteActiveSession('quiz', resourceId)
     } catch (error) {
       console.error('Failed to save score', error)
     }
@@ -132,7 +140,8 @@ export default function QuizPage() {
 
   const handleSaveAndExit = async () => {
     isSavedRef.current = true
-    await saveActiveSession('quiz', selectedSet, {
+    const resourceId = selectedSets.slice().sort().join(',')
+    await saveActiveSession('quiz', resourceId, {
       questions,
       currentIndex,
       answers,
@@ -144,7 +153,8 @@ export default function QuizPage() {
 
   const handleDiscardAndExit = async () => {
     isSavedRef.current = true
-    await deleteActiveSession('quiz', selectedSet)
+    const resourceId = selectedSets.slice().sort().join(',')
+    await deleteActiveSession('quiz', resourceId)
     window.history.go(-2)
   }
 
@@ -152,10 +162,11 @@ export default function QuizPage() {
     return () => {
       if (!isSavedRef.current && questions.length > 0 && !isFinished) {
         // Cleanup if unmounted without saving explicitly
-        deleteActiveSession('quiz', selectedSet)
+        const resourceId = selectedSets.slice().sort().join(',')
+        deleteActiveSession('quiz', resourceId)
       }
     }
-  }, [questions, isFinished, selectedSet])
+  }, [questions, isFinished, selectedSets])
 
   if (contextLoading || isLoadingSession) {
     return (
@@ -183,24 +194,20 @@ export default function QuizPage() {
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <select 
-            className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none flex-1 md:w-64 focus:border-rose-500"
-            value={selectedSet}
-            onChange={(e) => {
-              setSelectedSet(e.target.value)
+          <MultiSetSelector 
+            sets={sets}
+            selectedIds={selectedSets}
+            onChange={(newIds) => {
+              setSelectedSets(newIds)
               setErrorMsg('')
             }}
             disabled={questions.length > 0 && !isFinished}
-          >
-            {sets.map(set => (
-              <option key={set.id} value={set.id}>{set.title}</option>
-            ))}
-          </select>
+          />
           
           {(questions.length === 0 || isFinished) && !pendingSession && (
             <button 
               onClick={handleStartQuiz}
-              disabled={loading || !selectedSet}
+              disabled={loading || selectedSets.length === 0}
               className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold rounded-xl flex items-center gap-2 whitespace-nowrap transition-all"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}

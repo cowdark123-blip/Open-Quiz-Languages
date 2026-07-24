@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { PenTool, CheckCircle2, XCircle, Loader2, Play, Sparkles } from 'lucide-react'
-import { getCurrentUserProfile, saveActiveSession, loadActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
+import { getCurrentUserProfile, saveActiveSession, loadActiveSession, deleteActiveSession, checkAndUpdateStreak, fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
+import MultiSetSelector from '@/components/MultiSetSelector'
+import { useVocab } from '@/contexts/VocabContext'
 
 const TOPICS = [
   'Các thì trong tiếng Anh (Tenses)',
@@ -16,6 +18,8 @@ const TOPICS = [
 ]
 
 export default function GrammarPage() {
+  const { vocabSets: sets } = useVocab()
+  const [selectedSets, setSelectedSets] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'check' | 'practice'>('check')
   
   // Tab 1 State
@@ -40,10 +44,20 @@ export default function GrammarPage() {
       if (profile?.target_band) setTargetBand(profile.target_band)
     }
     fetchBand()
+  }, [])
 
+  useEffect(() => {
+    if (sets.length > 0 && selectedSets.length === 0) {
+      setSelectedSets([sets[0].id])
+    }
+  }, [sets, selectedSets])
+
+  useEffect(() => {
     const loadSession = async () => {
+      if (selectedSets.length === 0) return
       setIsLoadingSession(true)
-      const sessionData = await loadActiveSession('grammar', 'default')
+      const resourceId = selectedSets.slice().sort().join(',')
+      const sessionData = await loadActiveSession('grammar', resourceId)
       if (sessionData && sessionData.practiceQuestions && sessionData.practiceQuestions.length > 0) {
         setPendingSession(sessionData)
         setActiveTab('practice')
@@ -53,7 +67,7 @@ export default function GrammarPage() {
       setIsLoadingSession(false)
     }
     loadSession()
-  }, [])
+  }, [selectedSets])
 
   const handleCheckGrammar = async () => {
     if (!textToCheck.trim()) return
@@ -89,16 +103,20 @@ export default function GrammarPage() {
     setSubmitted(false)
 
     try {
+      const items = await fetchVocabItemsBySets(selectedSets)
+      const words = items.map(i => i.term).slice(0, 10)
+
       const res = await fetch('/api/ai/grammar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'practice', topic: selectedTopic, targetBand })
+        body: JSON.stringify({ action: 'practice', topic: selectedTopic, targetBand, words })
       })
 
       if (res.ok) {
         const data = await res.json()
         setPracticeQuestions(data.questions)
-        await saveActiveSession('grammar', 'default', {
+        const resourceId = selectedSets.slice().sort().join(',')
+        await saveActiveSession('grammar', resourceId, {
           practiceQuestions: data.questions,
           answers: {},
           submitted: false,
@@ -117,8 +135,9 @@ export default function GrammarPage() {
 
   const handleSaveAndExit = async () => {
     isSavedRef.current = true
+    const resourceId = selectedSets.slice().sort().join(',')
     if (practiceQuestions.length > 0 && !submitted) {
-      await saveActiveSession('grammar', 'default', {
+      await saveActiveSession('grammar', resourceId, {
         practiceQuestions,
         answers,
         submitted,
@@ -130,7 +149,8 @@ export default function GrammarPage() {
 
   const handleDiscardAndExit = async () => {
     isSavedRef.current = true
-    await deleteActiveSession('grammar', 'default')
+    const resourceId = selectedSets.slice().sort().join(',')
+    await deleteActiveSession('grammar', resourceId)
     window.history.go(-2)
   }
 
@@ -138,10 +158,11 @@ export default function GrammarPage() {
     return () => {
       if (!isSavedRef.current && practiceQuestions.length > 0 && !submitted) {
         // Cleanup if unmounted unexpectedly
-        deleteActiveSession('grammar', 'default')
+        const resourceId = selectedSets.slice().sort().join(',')
+        deleteActiveSession('grammar', resourceId)
       }
     }
-  }, [practiceQuestions, submitted, selectedTopic])
+  }, [practiceQuestions, submitted, selectedTopic, selectedSets])
 
   if (isLoadingSession) {
     return (
@@ -168,9 +189,20 @@ export default function GrammarPage() {
             </h2>
             <p className="text-xs text-slate-400">Sửa lỗi câu hoặc tạo bài tập ngữ pháp theo chủ đề</p>
           </div>
+          
+          {activeTab === 'practice' && (
+            <div className="hidden md:block">
+              <MultiSetSelector 
+                sets={sets}
+                selectedIds={selectedSets}
+                onChange={(newIds) => setSelectedSets(newIds)}
+                disabled={generating || (practiceQuestions.length > 0 && !submitted)}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="flex bg-slate-900 p-1 rounded-xl w-full max-w-sm border border-slate-800">
+        <div className="flex bg-slate-900 p-1 rounded-xl w-full max-w-sm border border-slate-800 mb-4 md:mb-0">
           <button
             onClick={() => setActiveTab('check')}
             className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
@@ -243,6 +275,15 @@ export default function GrammarPage() {
       {activeTab === 'practice' && (
         <div className="space-y-6">
           <div className="glass-card p-6 md:p-8 rounded-3xl border border-slate-800 flex flex-col md:flex-row gap-4 items-end">
+            <div className="w-full md:hidden mb-2">
+              <label className="block text-sm font-semibold text-slate-300 mb-2">Chọn bộ từ vựng kết hợp:</label>
+              <MultiSetSelector 
+                sets={sets}
+                selectedIds={selectedSets}
+                onChange={(newIds) => setSelectedSets(newIds)}
+                disabled={generating || (practiceQuestions.length > 0 && !submitted)}
+              />
+            </div>
             <div className="flex-1 w-full">
               <label className="block text-sm font-semibold text-slate-300 mb-2">Chọn chủ đề ngữ pháp:</label>
               <select 
@@ -341,7 +382,8 @@ export default function GrammarPage() {
                 <button
                   onClick={async () => {
                     setSubmitted(true)
-                    await deleteActiveSession('grammar', 'default')
+                    const resourceId = selectedSets.slice().sort().join(',')
+                    await deleteActiveSession('grammar', resourceId)
                     await checkAndUpdateStreak()
                     if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
                   }}

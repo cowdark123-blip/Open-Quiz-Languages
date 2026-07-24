@@ -157,6 +157,41 @@ export async function fetchVocabItems(setId: string): Promise<VocabItem[]> {
   }
 }
 
+export async function fetchVocabItemsBySets(setIds: string[]): Promise<VocabItem[]> {
+  if (!setIds || setIds.length === 0) return []
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data, error } = await supabase
+      .from('vocab_items')
+      .select('*, user_srs_progress(*)')
+      .in('set_id', setIds)
+
+    if (error || !data) {
+      const { data: fallbackData } = await supabase
+        .from('vocab_items')
+        .select('*')
+        .in('set_id', setIds)
+      
+      if (!fallbackData) return []
+      return fallbackData.sort(() => Math.random() - 0.5) as VocabItem[]
+    }
+    
+    const items = data.map((item: any) => {
+      const progress = item.user_srs_progress?.find((p: any) => p.user_id === user?.id) || item.user_srs_progress?.[0]
+      return {
+        ...item,
+        srsProgress: progress,
+        user_srs_progress: undefined
+      }
+    }) as VocabItem[]
+    
+    return items.sort(() => Math.random() - 0.5)
+  } catch {
+    return []
+  }
+}
+
 export async function fetchAllUserVocabItems(): Promise<VocabItem[]> {
   const supabase = createClient()
   try {

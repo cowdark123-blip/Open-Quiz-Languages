@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { action, text, topic, targetBand } = await req.json()
+    const { action, text, topic, targetBand, words } = await req.json()
 
     const GROQ_API_KEY = process.env.GROQ_API_KEY
     if (!GROQ_API_KEY) {
@@ -50,9 +50,13 @@ If there ARE errors, fix them and respond exactly with:
 ${difficultyInstruction}`
     } else if (action === 'practice') {
       if (!topic) return NextResponse.json({ error: 'Missing topic' }, { status: 400 })
+      
+      const wordsInstruction = words && words.length > 0 ? `Try to naturally include some of these vocabulary words if possible: ${words.join(', ')}.` : ''
+
       systemPrompt = `You are an English teacher generating practice exercises.
 Create 5 multiple-choice questions focusing on the grammar topic: "${topic}".
 The questions can be fill-in-the-blank or find-the-error.
+${wordsInstruction}
 
 Respond in strict JSON format:
 {
