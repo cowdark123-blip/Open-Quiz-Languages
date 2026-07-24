@@ -8,6 +8,7 @@ import { Trophy, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-
 import NavigationGuard from '@/components/NavigationGuard'
 import MultiSetSelector from '@/components/MultiSetSelector'
 import WordSelector from '@/components/WordSelector'
+import InteractiveText from '@/components/InteractiveText'
 import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 
 type QuizQuestion = {
@@ -233,10 +234,13 @@ export default function QuizPage() {
       )}
 
       {!pendingSession && questions.length === 0 && !isFinished && fetchedItems.length > 0 && (
-        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
-          <h3 className="font-bold text-white text-lg border-b border-slate-800 pb-2">Cấu hình bài kiểm tra</h3>
+        <details className="glass-panel p-6 rounded-3xl border border-slate-800 group" open>
+          <summary className="font-bold text-white text-lg border-b border-slate-800 pb-2 cursor-pointer list-none flex items-center justify-between">
+            <span>Cấu hình bài kiểm tra</span>
+            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Số lượng câu hỏi ({questionCount})</label>
@@ -258,7 +262,7 @@ export default function QuizPage() {
               />
             </div>
           </div>
-        </div>
+        </details>
       )}
 
       {pendingSession ? (
@@ -304,7 +308,7 @@ export default function QuizPage() {
           </div>
 
           <div className="text-center py-10 space-y-4">
-            <h3 className="text-4xl font-black text-white tracking-wide">{questions[currentIndex].vocab.term}</h3>
+            <h3 className="text-4xl font-black text-white tracking-wide"><InteractiveText text={questions[currentIndex].vocab.term} /></h3>
             {questions[currentIndex].vocab.ipa && (
               <p className="text-slate-400 font-mono">{questions[currentIndex].vocab.ipa}</p>
             )}

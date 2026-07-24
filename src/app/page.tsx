@@ -186,7 +186,10 @@ export default function LandingPage() {
       {/* Feature 1: Flashcard & Speaking */}
       <section id="features" className="max-w-5xl mx-auto px-6 py-16">
         <div className="glass-panel p-8 rounded-3xl border border-slate-800 relative shadow-2xl">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 pb-4 border-b border-slate-800 gap-4">
+          <a href="#" className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-800 text-slate-500 hover:text-white transition-colors" title="Đóng">
+            <X className="w-5 h-5" />
+          </a>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 pb-4 border-b border-slate-800 gap-4 mt-6 md:mt-0">
             <div>
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-purple-400" />
@@ -331,7 +334,10 @@ export default function LandingPage() {
       {/* Feature 2: SRS Demo */}
       <section id="srs" className="max-w-5xl mx-auto px-6 py-16">
         <div className="glass-panel p-8 rounded-3xl border border-slate-800 relative shadow-2xl">
-          <div className="flex flex-col md:flex-row items-start justify-between mb-8 pb-4 border-b border-slate-800 gap-4">
+          <a href="#" className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-800 text-slate-500 hover:text-white transition-colors" title="Đóng">
+            <X className="w-5 h-5" />
+          </a>
+          <div className="flex flex-col md:flex-row items-start justify-between mb-8 pb-4 border-b border-slate-800 gap-4 mt-6 md:mt-0">
             <div>
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
                 <CalendarClock className="w-5 h-5 text-cyan-400" />

@@ -223,10 +223,13 @@ export default function ReadingPage() {
       )}
 
       {!pendingSession && !article && !loading && !generating && vocabItems.length > 0 && (
-        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
-          <h3 className="font-bold text-white text-lg border-b border-slate-800 pb-2">Cấu hình bài đọc</h3>
+        <details className="glass-panel p-6 rounded-3xl border border-slate-800 group" open>
+          <summary className="font-bold text-white text-lg border-b border-slate-800 pb-2 cursor-pointer list-none flex items-center justify-between">
+            <span>Cấu hình bài đọc</span>
+            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Số lượng câu hỏi trắc nghiệm ({questionCount})</label>
@@ -268,7 +271,7 @@ export default function ReadingPage() {
               />
             </div>
           </div>
-        </div>
+        </details>
       )}
 
       <div className="max-w-4xl mx-auto space-y-6">

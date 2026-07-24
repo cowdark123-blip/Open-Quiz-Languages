@@ -6,6 +6,7 @@ import { VocabSet, VocabItem } from '@/types/database'
 import { Mic, Loader2, Play, Square, Sparkles, MessageCircle, AlertCircle } from 'lucide-react'
 import MultiSetSelector from '@/components/MultiSetSelector'
 import WordSelector from '@/components/WordSelector'
+import InteractiveText from '@/components/InteractiveText'
 import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 import { useVocab } from '@/contexts/VocabContext'
 
@@ -123,18 +124,18 @@ export default function SpeakingPage() {
         
         recognition.onresult = (event: any) => {
           let currentTranscript = ''
-          for (let i = event.resultIndex; i < event.results.length; i++) {
+          for (let i = 0; i < event.results.length; i++) {
             currentTranscript += event.results[i][0].transcript
           }
-          setTranscript(prev => {
-            // Keep finalized parts, but for simplicity we just accumulate
-            // Actually, continuous true means it keeps adding. Let's just use a simple concatenation
-            let finalStr = ''
-            for (let i = 0; i < event.results.length; ++i) {
-                finalStr += event.results[i][0].transcript
-            }
-            return finalStr
-          })
+          setTranscript(currentTranscript)
+        }
+        
+        recognition.onerror = (e: any) => {
+          console.error("Speech recognition error", e.error)
+        }
+        
+        recognition.onend = () => {
+          setIsRecording(false)
         }
         
         recognition.start()
@@ -254,35 +255,40 @@ export default function SpeakingPage() {
       )}
 
       {!scenario && (
-        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
-          <h3 className="font-bold text-white text-lg border-b border-slate-800 pb-2">Cấu hình bài nói</h3>
+        <details className="glass-panel p-6 rounded-3xl border border-slate-800 group" open>
+          <summary className="font-bold text-white text-lg border-b border-slate-800 pb-2 cursor-pointer list-none flex items-center justify-between">
+            <span>Cấu hình bài nói</span>
+            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <MultiSetSelector 
-                sets={sets}
-                selectedIds={selectedSets}
-                onChange={setSelectedSets}
-              />
+          <div className="space-y-6 pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <MultiSetSelector 
+                  sets={sets}
+                  selectedIds={selectedSets}
+                  onChange={setSelectedSets}
+                />
+              </div>
+              <div>
+                <WordSelector 
+                  items={fetchedItems}
+                  selectedIds={selectedWords}
+                  onChange={setSelectedWords}
+                />
+              </div>
             </div>
-            <div>
-              <WordSelector 
-                items={fetchedItems}
-                selectedIds={selectedWords}
-                onChange={setSelectedWords}
-              />
-            </div>
+            
+            <button
+              onClick={handleGenerateScenario}
+              disabled={loading || selectedWords.length === 0}
+              className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+              Tạo tình huống AI 🎭
+            </button>
           </div>
-          
-          <button
-            onClick={handleGenerateScenario}
-            disabled={loading || selectedWords.length === 0}
-            className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-            Tạo tình huống AI 🎭
-          </button>
-        </div>
+        </details>
       )}
 
       {scenario && (
@@ -290,7 +296,7 @@ export default function SpeakingPage() {
           <div className="space-y-4">
             <h3 className="text-2xl font-bold text-white">{scenario.title}</h3>
             <p className="text-slate-300 leading-relaxed bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-              {scenario.description}
+              <InteractiveText text={scenario.description} />
             </p>
             <div className="flex flex-wrap gap-2">
               <span className="text-sm text-slate-400 py-1">Từ vựng cần dùng:</span>
@@ -368,7 +374,7 @@ export default function SpeakingPage() {
                     </div>
                   </div>
                   <p className="text-slate-300 mt-4 leading-relaxed bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                    {finalScore.feedback}
+                    <InteractiveText text={finalScore.feedback} />
                   </p>
                   
                   <button

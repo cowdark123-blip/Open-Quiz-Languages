@@ -273,10 +273,13 @@ export default function DictationPage() {
       )}
 
       {!loading && !loadingAi && !pendingSession && items.length === 0 && (
-        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
-          <h3 className="font-bold text-white text-lg border-b border-slate-800 pb-2">Cấu hình luyện nghe</h3>
+        <details className="glass-panel p-6 rounded-3xl border border-slate-800 group" open>
+          <summary className="font-bold text-white text-lg border-b border-slate-800 pb-2 cursor-pointer list-none flex items-center justify-between">
+            <span>Cấu hình luyện nghe</span>
+            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">Số lượng câu ({questionCount})</label>
@@ -312,7 +315,7 @@ export default function DictationPage() {
               />
             </div>
           </div>
-        </div>
+        </details>
       )}
 
       {!loading && !loadingAi && pendingSession ? (

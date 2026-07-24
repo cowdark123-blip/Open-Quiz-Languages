@@ -274,35 +274,42 @@ export default function GrammarPage() {
 
       {activeTab === 'practice' && (
         <div className="space-y-6">
-          <div className="glass-card p-6 md:p-8 rounded-3xl border border-slate-800 flex flex-col md:flex-row gap-4 items-end">
-            <div className="w-full md:hidden mb-2">
-              <label className="block text-sm font-semibold text-slate-300 mb-2">Chọn bộ từ vựng kết hợp:</label>
-              <MultiSetSelector 
-                sets={sets}
-                selectedIds={selectedSets}
-                onChange={(newIds) => setSelectedSets(newIds)}
-                disabled={generating || (practiceQuestions.length > 0 && !submitted)}
-              />
-            </div>
-            <div className="flex-1 w-full">
-              <label className="block text-sm font-semibold text-slate-300 mb-2">Chọn chủ đề ngữ pháp:</label>
-              <select 
-                className="w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-3 outline-none focus:border-emerald-500"
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
+          <details className="glass-panel p-6 md:p-8 rounded-3xl border border-slate-800 group" open>
+            <summary className="font-bold text-white text-lg border-b border-slate-800 pb-2 cursor-pointer list-none flex items-center justify-between">
+              <span>Cấu hình luyện tập</span>
+              <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            
+            <div className="flex flex-col md:flex-row gap-4 items-end pt-6">
+              <div className="w-full md:hidden mb-2">
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Chọn bộ từ vựng kết hợp:</label>
+                <MultiSetSelector 
+                  sets={sets}
+                  selectedIds={selectedSets}
+                  onChange={(newIds) => setSelectedSets(newIds)}
+                  disabled={generating || (practiceQuestions.length > 0 && !submitted)}
+                />
+              </div>
+              <div className="flex-1 w-full">
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Chọn chủ đề ngữ pháp:</label>
+                <select 
+                  className="w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-3 outline-none focus:border-emerald-500"
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
+                >
+                  {TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <button 
+                onClick={handleGeneratePractice}
+                disabled={generating}
+                className="w-full md:w-auto px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
               >
-                {TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+                {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-white" />}
+                Tạo Bài Tập
+              </button>
             </div>
-            <button 
-              onClick={handleGeneratePractice}
-              disabled={generating}
-              className="w-full md:w-auto px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-white" />}
-              Tạo Bài Tập
-            </button>
-          </div>
+          </details>
 
           {pendingSession ? (
             <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 text-center space-y-4 animate-in fade-in">
