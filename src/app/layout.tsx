@@ -19,6 +19,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'OpenQuiz AI - Học Từ Vựng & Luyện Nói Phản Xạ Thông Minh',
   description: 'Nền tảng học từ vựng SRS lặp lại ngắt quãng, tự động tạo từ vựng bằng AI và luyện phát âm nói phản xạ chi tiết.',
+  manifest: '/manifest.json',
 }
 
 export default function RootLayout({
@@ -35,6 +36,21 @@ export default function RootLayout({
         <BackgroundProvider>
           <BackgroundWrapper>{children}</BackgroundWrapper>
         </BackgroundProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                  }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   )
