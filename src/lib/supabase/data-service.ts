@@ -67,9 +67,12 @@ export async function checkAndUpdateStreak(userId?: string): Promise<number> {
       newStreak = 1
     }
 
+    const bestStreak = Math.max(newStreak, profile?.best_streak || 0)
+
     await supabase.from('profiles').upsert({
       id: targetUserId,
       streak_count: newStreak,
+      best_streak: bestStreak,
       last_active_date: todayStr,
     })
 

@@ -22,7 +22,7 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
       const activeStreak = await updateUserStreak(user.id)
       const current = activeStreak || profile?.streak_count || 1
       setStreakCount(current)
-      setBestStreak(Math.max(current, (profile?.streak_count || 1) + 2))
+      setBestStreak(profile?.best_streak || current)
     }
     setLoading(false)
   }
