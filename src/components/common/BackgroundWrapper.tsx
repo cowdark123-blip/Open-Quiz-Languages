@@ -28,7 +28,7 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
             className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-black"
           >
             <iframe
-              src={`https://www.youtube.com/embed/${theme.split(':')[1]}?autoplay=1&mute=1&loop=1&controls=0&playlist=${theme.split(':')[1]}&rel=0&showinfo=0`}
+              src={`https://www.youtube.com/embed/${theme.split(':')[1]}?autoplay=1&mute=0&loop=1&controls=0&playlist=${theme.split(':')[1]}&rel=0&showinfo=0`}
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh]"
               style={{ border: 'none' }}
               allow="autoplay; encrypted-media"
