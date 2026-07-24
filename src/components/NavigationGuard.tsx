@@ -14,6 +14,7 @@ interface NavigationGuardProps {
 
 export default function NavigationGuard({ isDirty, onSaveAndExit, onDiscardAndExit, onForceExit, children }: NavigationGuardProps) {
   const [showModal, setShowModal] = useState(false)
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -35,14 +36,31 @@ export default function NavigationGuard({ isDirty, onSaveAndExit, onDiscardAndEx
 
     const handlePopState = (e: PopStateEvent) => {
       window.history.pushState(null, '', window.location.href)
+      setPendingUrl(null)
       setShowModal(true)
     }
 
     window.history.pushState(null, '', window.location.href)
     window.addEventListener('popstate', handlePopState)
 
+    const handleAnchorClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('a')
+      if (target && target.href && target.target !== '_blank') {
+        const url = new URL(target.href)
+        if (url.origin === window.location.origin && url.pathname !== window.location.pathname) {
+          e.preventDefault()
+          e.stopPropagation()
+          setPendingUrl(target.href)
+          setShowModal(true)
+        }
+      }
+    }
+
+    document.addEventListener('click', handleAnchorClick, { capture: true })
+
     return () => {
       window.removeEventListener('popstate', handlePopState)
+      document.removeEventListener('click', handleAnchorClick, { capture: true })
     }
   }, [isDirty])
 
@@ -67,9 +85,10 @@ export default function NavigationGuard({ isDirty, onSaveAndExit, onDiscardAndEx
             <div className="space-y-3">
               {onSaveAndExit && (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowModal(false)
-                    onSaveAndExit()
+                    await onSaveAndExit()
+                    if (pendingUrl) router.push(pendingUrl)
                   }}
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20"
                 >
@@ -78,26 +97,18 @@ export default function NavigationGuard({ isDirty, onSaveAndExit, onDiscardAndEx
                 </button>
               )}
 
-              {onDiscardAndExit && (
-                <button
-                  onClick={() => {
-                    setShowModal(false)
-                    onDiscardAndExit()
-                  }}
-                  className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm flex items-center justify-center gap-2 transition-all"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Không Lưu (Làm Lại)</span>
-                </button>
-              )}
-
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowModal(false)
                   if (onForceExit) {
-                    onForceExit()
+                    await onForceExit()
+                  } else if (onDiscardAndExit) {
+                    await onDiscardAndExit()
+                  }
+                  if (pendingUrl) {
+                    router.push(pendingUrl)
                   } else {
-                    window.history.go(-2) // Go back past the injected pushState
+                    window.history.go(-2)
                   }
                 }}
                 className="w-full py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-sm flex items-center justify-center gap-2 transition-all"
