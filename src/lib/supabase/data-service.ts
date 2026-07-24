@@ -308,14 +308,31 @@ export async function saveSRSProgress(progress: Partial<UserSRSProgress>): Promi
       last_reviewed_at: new Date().toISOString(),
     }
 
-    // Upsert into user_srs_progress
-    const { error } = await supabase.from('user_srs_progress').upsert(payload, {
-      onConflict: 'user_id,item_id',
-    })
+    // Check if progress already exists to avoid onConflict composite key issues
+    const { data: existing } = await supabase
+      .from('user_srs_progress')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('item_id', progress.item_id)
+      .single()
 
-    if (error) {
-      console.error('Supabase SRS Upsert Error:', error)
-      throw new Error(error.message)
+    let err;
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from('user_srs_progress')
+        .update(payload)
+        .eq('id', existing.id)
+      err = updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from('user_srs_progress')
+        .insert([payload])
+      err = insertError;
+    }
+
+    if (err) {
+      console.error('Supabase SRS Update/Insert Error:', err)
+      throw new Error(err.message)
     }
 
     // Update streak for active learning activity
