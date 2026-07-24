@@ -17,14 +17,14 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden">
       {/* Dynamic Animated Background Layer */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         <motion.div
           key={theme}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: 'easeInOut' }}
-          className={`fixed inset-0 -z-20 pointer-events-none transition-all duration-700 ${
+          transition={{ duration: 1.5, ease: 'easeInOut' }}
+          className={`fixed inset-0 -z-20 pointer-events-none ${
             themeBgClasses[theme] || 'bg-gradient-cosmic'
           }`}
         >
