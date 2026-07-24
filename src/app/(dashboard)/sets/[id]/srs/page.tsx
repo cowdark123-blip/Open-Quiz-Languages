@@ -100,19 +100,17 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
         return
       }
 
-      setTimeout(() => {
-        setReviewedCount((prev) => prev + 1)
-        setIsAnswerRevealed(false)
+      setReviewedCount((prev) => prev + 1)
+      setIsAnswerRevealed(false)
 
-        const newItems = items.filter(i => i.id !== currentItem.id)
-        setItems(newItems)
+      const newItems = items.filter(i => i.id !== currentItem.id)
+      setItems(newItems)
 
-        if (newItems.length === 0) {
-          setIsCompleted(true)
-        } else {
-          setCurrentIndex(prev => prev >= newItems.length ? 0 : prev)
-        }
-      }, result.repetition >= 4 ? 600 : 0) // Delay transition if mastered so they can see the tag change
+      if (newItems.length === 0) {
+        setIsCompleted(true)
+      } else {
+        setCurrentIndex(prev => prev >= newItems.length ? 0 : prev)
+      }
     },
     [currentIndex, items, currentSM2, currentItem]
   )
@@ -275,82 +273,93 @@ export default function SetSRSPage({ params }: { params: { id: string } }) {
 
       <div className="space-y-6">
         {/* Main SRS Review Card */}
-        <div className="glass-panel p-8 rounded-3xl border border-purple-500/30 shadow-2xl relative space-y-6 min-h-[380px] flex flex-col justify-between">
-          <div className="flex items-center justify-between relative">
-            <div className="flex flex-col items-start gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                {currentItem.setTitle || 'Bộ Từ Vựng'}
-              </span>
-            </div>
-            
-            <div className="flex gap-2 absolute top-0 right-0 z-10">
-              <button onClick={toggleStar} className="p-2 rounded-full hover:bg-slate-800 transition-colors">
-                <Star className={`w-5 h-5 ${currentItem?.is_starred ? 'text-amber-400 fill-amber-400' : 'text-slate-500'}`} />
-              </button>
-              <button
-                onClick={(e) => playAudio(currentItem.term, e)}
-                className="p-2 rounded-full text-purple-300 hover:bg-purple-500/10"
-                title="Phát âm (Phím A / S)"
-              >
-                <Volume2 className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-          <StatusBadges />
-
-          {/* Prompt & Term Section */}
-          <div className="text-center space-y-4 my-auto">
-            <span className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Từ Mục Tiêu SRS</span>
-            <h2 className="text-4xl md:text-5xl font-black text-white tracking-wide">{currentItem.term}</h2>
-            {currentItem.ipa && (
-              <p className="text-base font-mono text-purple-300 italic">{currentItem.ipa}</p>
-            )}
-          </div>
-
-          {/* Answer Content */}
-          <AnimatePresence>
-            {isAnswerRevealed ? (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 text-left"
-              >
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Định nghĩa tiếng Anh</span>
-                  <p className="text-base font-bold text-white mt-0.5">{currentItem.definition}</p>
+        <div className="perspective-1000 w-full min-h-[380px] relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentItem.id}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              className="glass-panel p-8 rounded-3xl border border-purple-500/30 shadow-2xl relative space-y-6 min-h-[380px] flex flex-col justify-between"
+            >
+              <div className="flex items-center justify-between relative">
+                <div className="flex flex-col items-start gap-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                    {currentItem.setTitle || 'Bộ Từ Vựng'}
+                  </span>
                 </div>
+                
+                <div className="flex gap-2 absolute top-0 right-0 z-10">
+                  <button onClick={toggleStar} className="p-2 rounded-full hover:bg-slate-800 transition-colors">
+                    <Star className={`w-5 h-5 ${currentItem?.is_starred ? 'text-amber-400 fill-amber-400' : 'text-slate-500'}`} />
+                  </button>
+                  <button
+                    onClick={(e) => playAudio(currentItem.term, e)}
+                    className="p-2 rounded-full text-purple-300 hover:bg-purple-500/10"
+                    title="Phát âm (Phím A / S)"
+                  >
+                    <Volume2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <StatusBadges />
 
-                {currentItem.vietnamese_translation && (
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-purple-400">Bản dịch Tiếng Việt</span>
-                    <p className="text-sm font-semibold text-purple-200 mt-0.5">
-                      {currentItem.vietnamese_translation}
-                    </p>
-                  </div>
+              {/* Prompt & Term Section */}
+              <div className="text-center space-y-4 my-auto">
+                <span className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Từ Mục Tiêu SRS</span>
+                <h2 className="text-4xl md:text-5xl font-black text-white tracking-wide">{currentItem.term}</h2>
+                {currentItem.ipa && (
+                  <p className="text-base font-mono text-purple-300 italic">{currentItem.ipa}</p>
                 )}
+              </div>
 
-                {currentItem.example_sentence && (
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs text-slate-300">
-                    <strong>Ví dụ:</strong> &quot;{currentItem.example_sentence}&quot;
-                  </div>
+              {/* Answer Content */}
+              <AnimatePresence>
+                {isAnswerRevealed ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 text-left"
+                  >
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Định nghĩa tiếng Anh</span>
+                      <p className="text-base font-bold text-white mt-0.5">{currentItem.definition}</p>
+                    </div>
+
+                    {currentItem.vietnamese_translation && (
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-purple-400">Bản dịch Tiếng Việt</span>
+                        <p className="text-sm font-semibold text-purple-200 mt-0.5">
+                          {currentItem.vietnamese_translation}
+                        </p>
+                      </div>
+                    )}
+
+                    {currentItem.example_sentence && (
+                      <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs text-slate-300">
+                        <strong>Ví dụ:</strong> &quot;{currentItem.example_sentence}&quot;
+                      </div>
+                    )}
+
+                    {/* Integrated AI Pronunciation Module */}
+                    <AIPronunciationTrainer
+                      targetWord={currentItem.term}
+                      targetSentence={currentItem.example_sentence || undefined}
+                    />
+                  </motion.div>
+                ) : (
+                  <button
+                    onClick={() => setIsAnswerRevealed(true)}
+                    className="w-full py-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-4 h-4 text-purple-400" />
+                    <span>Hiển Thị Đáp Án & Định Nghĩa (Phím Space)</span>
+                  </button>
                 )}
-
-                {/* Integrated AI Pronunciation Module */}
-                <AIPronunciationTrainer
-                  targetWord={currentItem.term}
-                  targetSentence={currentItem.example_sentence || undefined}
-                />
-              </motion.div>
-            ) : (
-              <button
-                onClick={() => setIsAnswerRevealed(true)}
-                className="w-full py-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 font-semibold text-sm transition-all flex items-center justify-center gap-2"
-              >
-                <Eye className="w-4 h-4 text-purple-400" />
-                <span>Hiển Thị Đáp Án & Định Nghĩa (Phím Space)</span>
-              </button>
-            )}
+              </AnimatePresence>
+            </motion.div>
           </AnimatePresence>
         </div>
 

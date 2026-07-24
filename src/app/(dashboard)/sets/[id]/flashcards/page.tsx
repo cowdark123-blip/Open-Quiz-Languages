@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import NavigationGuard from '@/components/NavigationGuard'
 import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem } from '@/lib/supabase/data-service'
@@ -89,34 +89,19 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
       setToast(`🎉 Đã đánh dấu thành thạo từ "${currentCard.term}"!`)
       setTimeout(() => setToast(''), 3000)
-
-      setTimeout(() => {
-        setIsFlipped(false)
-        setCards(prevCards => {
-          const newCards = prevCards.filter(c => c.id !== currentCard.id)
-          if (newCards.length === 0) {
-            setIsCompleted(true)
-            deleteActiveSession('flashcards', setId)
-          } else {
-            if (currentIndex >= newCards.length) {
-              setCurrentIndex(0)
-            }
-          }
-          return newCards
-        })
-      }, 600)
     } else {
       setReviewCount((prev) => prev + 1)
-      setIsFlipped(false)
-
-      if (currentIndex + 1 < cards.length) {
-        setCurrentIndex((prev) => prev + 1)
-      } else {
-        setIsCompleted(true)
-        deleteActiveSession('flashcards', setId)
-      }
     }
-  }, [currentIndex, cards, currentCard, setId])
+
+    setIsFlipped(false)
+
+    if (currentIndex + 1 < cards.length) {
+      setCurrentIndex((prev) => prev + 1)
+    } else {
+      setIsCompleted(true)
+      deleteActiveSession('flashcards', setId)
+    }
+  }, [currentIndex, cards.length, currentCard, setId])
 
   const handleRestart = () => {
     setCurrentIndex(0)
@@ -262,12 +247,16 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-6">
           {/* 3D Flip Card Container */}
           <div className="perspective-1000 w-full max-w-xl mx-auto min-h-[420px] cursor-pointer select-none">
-            <motion.div
-              className="w-full h-full relative transform-style-3d min-h-[420px]"
-              animate={{ rotateY: isFlipped ? 180 : 0 }}
-              transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-              onClick={() => setIsFlipped(!isFlipped)}
-            >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentCard.id}
+                className="w-full h-full relative transform-style-3d min-h-[420px]"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0, rotateY: isFlipped ? 180 : 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                onClick={() => setIsFlipped(!isFlipped)}
+              >
               {/* Front of Card */}
               <div
                 className={`absolute inset-0 w-full h-full glass-card rounded-3xl p-8 flex flex-col items-center justify-between text-center border border-slate-700/80 shadow-2xl backface-hidden ${
@@ -362,7 +351,8 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
                 <div className="text-xs text-slate-500 font-medium mt-4">Chọn mức độ ghi nhớ ở bên dưới</div>
               </div>
-            </motion.div>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {/* Action Feedback Controls */}
