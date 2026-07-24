@@ -7,6 +7,13 @@ export async function POST(req: Request) {
   try {
     const { word, contextSentence } = await req.json()
 
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'Hệ thống chưa được cấu hình GEMINI_API_KEY trên Vercel. Vui lòng thêm biến môi trường này.' }, 
+        { status: 500 }
+      )
+    }
+
     if (!word) {
       return NextResponse.json({ success: false, error: 'Word is required' }, { status: 400 })
     }

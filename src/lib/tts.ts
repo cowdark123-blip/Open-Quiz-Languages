@@ -2,8 +2,8 @@ export const playTTS = (text: string, rate = 0.9, lang = 'en') => {
   if (typeof window === 'undefined') return
 
   try {
-    // Attempt to use Google Translate TTS
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${encodeURIComponent(text)}`
+    // Attempt to use Google Translate TTS via proxy
+    const url = `/api/tts?lang=${lang}&text=${encodeURIComponent(text)}`
     const audio = new Audio(url)
     audio.playbackRate = rate
     audio.play().catch((err) => {

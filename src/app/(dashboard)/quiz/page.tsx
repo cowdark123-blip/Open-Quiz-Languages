@@ -24,6 +24,7 @@ export default function QuizPage() {
   const [isFinished, setIsFinished] = useState(false)
   const [score, setScore] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const [pendingSession, setPendingSession] = useState<any>(null)
   const [isLoadingSession, setIsLoadingSession] = useState(true)
   const isSavedRef = React.useRef(false)
@@ -71,10 +72,11 @@ export default function QuizPage() {
     setVocabItems(items)
 
     if (items.length < 4) {
-      alert('Bộ từ vựng cần ít nhất 4 từ để tạo bài kiểm tra trắc nghiệm!')
+      setErrorMsg('Bộ từ vựng hiện tại chưa đủ từ. Hãy thêm ít nhất 4 từ để tạo bài kiểm tra nhé!')
       setLoading(false)
       return
     }
+    setErrorMsg('')
 
     // Generate up to 10 questions
     const shuffledItems = shuffleArray(items).slice(0, 10)
@@ -190,7 +192,10 @@ export default function QuizPage() {
           <select 
             className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none flex-1 md:w-64 focus:border-rose-500"
             value={selectedSet}
-            onChange={(e) => setSelectedSet(e.target.value)}
+            onChange={(e) => {
+              setSelectedSet(e.target.value)
+              setErrorMsg('')
+            }}
             disabled={questions.length > 0 && !isFinished}
           >
             {sets.map(set => (
@@ -210,6 +215,13 @@ export default function QuizPage() {
           )}
         </div>
       </div>
+
+      {errorMsg && (
+        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <XCircle className="w-5 h-5 shrink-0" />
+          <p className="text-sm font-medium">{errorMsg}</p>
+        </div>
+      )}
 
       {pendingSession ? (
         <div className="glass-panel p-8 rounded-3xl border border-rose-500/30 text-center space-y-4 animate-in fade-in">

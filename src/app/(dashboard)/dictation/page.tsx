@@ -5,7 +5,7 @@ import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveS
 import { VocabSet, VocabItem } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import { shuffleArray } from '@/lib/random'
-import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react'
+import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw, Sparkles, XCircle } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
 
@@ -14,6 +14,7 @@ export default function DictationPage() {
   const [selectedSet, setSelectedSet] = useState<string>('')
   const [items, setItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   
   const [currentIndex, setCurrentIndex] = useState(0)
   const [input, setInput] = useState('')
@@ -68,9 +69,11 @@ export default function DictationPage() {
   const loadItems = async (setId: string, forceNew: boolean = false) => {
     setPendingSession(null)
     setLoadingAi(true)
+    setErrorMsg('')
     setItems([])
     const fetched = await fetchVocabItems(setId)
     if (fetched.length === 0) {
+      setErrorMsg('Bộ từ vựng trống. Hãy thêm từ vựng để tạo bài kiểm tra nhé!')
       setItems([])
       setLoading(false)
       setLoadingAi(false)
@@ -111,6 +114,7 @@ export default function DictationPage() {
   const handleSetChange = (setId: string) => {
     setSelectedSet(setId)
     setItems([])
+    setErrorMsg('')
     checkSession(setId)
   }
 
@@ -244,6 +248,13 @@ export default function DictationPage() {
           </button>
         </div>
       </div>
+
+      {errorMsg && (
+        <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <XCircle className="w-5 h-5 shrink-0" />
+          <p className="text-sm font-medium">{errorMsg}</p>
+        </div>
+      )}
 
       {!loading && !loadingAi && pendingSession ? (
         <div className="glass-panel p-8 rounded-3xl border border-amber-500/30 text-center space-y-4 animate-in fade-in">

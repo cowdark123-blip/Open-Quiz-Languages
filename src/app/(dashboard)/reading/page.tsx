@@ -14,6 +14,7 @@ export default function ReadingPage() {
   const [vocabItems, setVocabItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const [targetBand, setTargetBand] = useState('co_ban')
   
   const [article, setArticle] = useState<string>('')
@@ -70,18 +71,19 @@ export default function ReadingPage() {
     setQuestions([])
     setAnswers({})
     setSubmitted(false)
+    setErrorMsg('')
 
     try {
       const items = await fetchVocabItems(selectedSet)
-      setVocabItems(items)
       
-      const words = shuffleArray(items).map(item => item.term).slice(0, 10)
-
-      if (words.length === 0) {
-        alert('Bộ từ vựng trống!')
+      if (items.length === 0) {
+        setErrorMsg('Bộ từ vựng trống. Hãy thêm từ vựng để tạo bài đọc hiểu nhé!')
         setGenerating(false)
         return
       }
+
+      setVocabItems(items)
+      const words = shuffleArray(items).map(item => item.term).slice(0, 10)
 
       const res = await fetch('/api/ai/reading', {
         method: 'POST',
@@ -100,11 +102,11 @@ export default function ReadingPage() {
           submitted: false
         })
       } else {
-        alert('Có lỗi xảy ra khi tạo bài đọc.')
+        setErrorMsg('Có lỗi xảy ra khi tạo bài đọc.')
       }
     } catch (error) {
       console.error(error)
-      alert('Có lỗi xảy ra khi tạo bài đọc.')
+      setErrorMsg('Có lỗi xảy ra khi tạo bài đọc.')
     } finally {
       setGenerating(false)
     }
@@ -177,7 +179,10 @@ export default function ReadingPage() {
             <select 
               className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 outline-none flex-1 md:w-64"
               value={selectedSet}
-              onChange={(e) => setSelectedSet(e.target.value)}
+              onChange={(e) => {
+                setSelectedSet(e.target.value)
+                setErrorMsg('')
+              }}
             >
               {sets.map(set => (
                 <option key={set.id} value={set.id}>{set.title}</option>
@@ -195,6 +200,13 @@ export default function ReadingPage() {
           </button>
         </div>
       </div>
+
+      {errorMsg && (
+        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <XCircle className="w-5 h-5 shrink-0" />
+          <p className="text-sm font-medium">{errorMsg}</p>
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="space-y-6">
