@@ -2,11 +2,10 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Upload, BookOpen, Sparkles, Loader2, Filter, Search } from 'lucide-react'
+import { Plus, Upload, BookOpen, Loader2, Filter, Search } from 'lucide-react'
 import { useVocab } from '@/contexts/VocabContext'
 import { WordSetCard } from './WordSetCard'
 import { CreateDeckModal } from './CreateDeckModal'
-import { seedSampleSetForUser } from '@/lib/supabase/data-service'
 
 interface DecksGridProps {
   searchQuery?: string
@@ -23,7 +22,6 @@ export function DecksGrid({
   const [categoryFilter, setCategoryFilter] = useState(selectedCategory)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'import'>('create')
-  const [seeding, setSeeding] = useState(false)
 
   const handleCategorySelect = (cat: string) => {
     setCategoryFilter(cat)
@@ -44,13 +42,6 @@ export function DecksGrid({
 
     return matchesSearch && matchesCategory
   })
-
-  const handleSeedSample = async () => {
-    setSeeding(true)
-    await seedSampleSetForUser()
-    await refreshVocab()
-    setSeeding(false)
-  }
 
   const openCreateModal = (mode: 'create' | 'import') => {
     setModalMode(mode)
@@ -123,24 +114,11 @@ export function DecksGrid({
             <p className="text-slate-400 text-xs leading-relaxed max-w-md mx-auto">
               {searchQuery
                 ? `Không có kết quả nào cho "${searchQuery}". Hãy thử tìm kiếm với từ khóa khác.`
-                : 'Bắt đầu tạo bộ từ vựng cá nhân đầu tiên hoặc nạp nhanh bộ từ vựng mẫu IELTS chuẩn vào tài khoản của bạn!'}
+                : 'Bắt đầu tạo bộ từ vựng cá nhân đầu tiên của bạn!'}
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <button
-              onClick={handleSeedSample}
-              disabled={seeding}
-              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
-            >
-              {seeding ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4 text-emerald-200" />
-              )}
-              <span>Nạp Mẫu Bộ Từ IELTS Academic</span>
-            </button>
-
             <button
               onClick={() => openCreateModal('create')}
               className="w-full sm:w-auto px-5 py-3 rounded-xl glass-card text-purple-300 border border-purple-500/30 hover:bg-slate-800 font-bold text-xs transition-all flex items-center justify-center gap-2"
