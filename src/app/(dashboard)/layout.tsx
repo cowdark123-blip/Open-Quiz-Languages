@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Brain, LayoutDashboard, Layers, Sparkles, LogOut, BookOpen, Flame, Settings, Home } from 'lucide-react'
+import { Brain, LayoutDashboard, Layers, Sparkles, LogOut, BookOpen, Settings, Home } from 'lucide-react'
+import StreakWidget from '@/components/StreakWidget'
 
 export default function DashboardLayout({
   children,
@@ -162,10 +163,7 @@ export default function DashboardLayout({
 
           <div className="flex items-center gap-4">
             {/* Streak Counter Badge */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold shadow-sm">
-              <Flame className="w-4 h-4 text-amber-400 fill-amber-400/20 animate-bounce" />
-              <span>Chuỗi {userInfo.streak} Ngày 🔥</span>
-            </div>
+            <StreakWidget />
 
 
           </div>

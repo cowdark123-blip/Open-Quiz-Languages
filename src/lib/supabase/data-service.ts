@@ -35,7 +35,7 @@ export async function updateUserProfile(updates: Partial<Profile>): Promise<bool
   }
 }
 
-export async function updateUserStreak(userId?: string): Promise<number> {
+export async function checkAndUpdateStreak(userId?: string): Promise<number> {
   const supabase = createClient()
   try {
     let targetUserId = userId
@@ -79,6 +79,8 @@ export async function updateUserStreak(userId?: string): Promise<number> {
     return 1
   }
 }
+
+export const updateUserStreak = checkAndUpdateStreak
 
 export async function fetchUserVocabSets(userId?: string): Promise<VocabSet[]> {
   const supabase = createClient()
@@ -317,7 +319,8 @@ export async function saveSRSProgress(progress: Partial<UserSRSProgress>): Promi
     }
 
     // Update streak for active learning activity
-    await updateUserStreak(userId)
+    await checkAndUpdateStreak(userId)
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
 
     return true
   } catch (err: any) {
@@ -342,7 +345,8 @@ export async function saveQuizResult(setId: string, score: number, total: number
     const { error } = await supabase.from('quiz_results').insert([payload])
     
     // Update streak for active learning activity
-    await updateUserStreak(userId)
+    await checkAndUpdateStreak(userId)
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
 
     return !error
   } catch {
@@ -364,7 +368,8 @@ export async function saveSpeakingSession(session: Partial<SpeakingSession>): Pr
     const { error } = await supabase.from('speaking_sessions').insert([payload])
     
     // Update streak for active speaking activity
-    await updateUserStreak(userId)
+    await checkAndUpdateStreak(userId)
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
 
     return !error
   } catch {
