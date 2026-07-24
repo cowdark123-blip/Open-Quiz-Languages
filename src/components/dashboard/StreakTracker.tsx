@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Flame, Trophy, Calendar, CheckCircle, Zap, Info, X } from 'lucide-react'
-import { getCurrentUserProfile, updateUserStreak } from '@/lib/supabase/data-service'
+import { getCurrentUserProfile, updateUserStreak, getActivityHistory } from '@/lib/supabase/data-service'
 
 interface StreakTrackerProps {
   initialStreak?: number
@@ -14,15 +14,19 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
   const [bestStreak, setBestStreak] = useState<number>(1)
   const [isOpenStats, setIsOpenStats] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [activeDates, setActiveDates] = useState<string[]>([])
 
   const loadStreakData = async () => {
     setLoading(true)
     const { user, profile } = await getCurrentUserProfile()
     if (user) {
       const activeStreak = await updateUserStreak(user.id)
-      const current = activeStreak || profile?.streak_count || 1
+      const current = activeStreak || profile?.streak_count || 0
       setStreakCount(current)
       setBestStreak(profile?.best_streak || current)
+      
+      const history = await getActivityHistory(user.id, 28)
+      setActiveDates(history)
     }
     setLoading(false)
   }
@@ -34,13 +38,10 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
     return () => window.removeEventListener('streak-updated', handleUpdate)
   }, [])
 
-  // Generate 28-day history. Days within current streak (from start date to today) are orange.
+  // Generate 28-day history. Only dates in activeDates are orange.
   const generateHistoryDays = () => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    // streak start = today minus (streakCount - 1) days
-    const streakStart = new Date(today)
-    streakStart.setDate(today.getDate() - (streakCount - 1))
 
     const days = []
     for (let i = 27; i >= 0; i--) {
@@ -48,7 +49,7 @@ export function StreakTracker({ initialStreak }: StreakTrackerProps) {
       d.setDate(today.getDate() - i)
       d.setHours(0, 0, 0, 0)
       const dateStr = d.toISOString().split('T')[0]
-      const isActive = d >= streakStart && d <= today
+      const isActive = activeDates.includes(dateStr)
       const isToday = i === 0
       days.push({ dateStr, dayNum: d.getDate(), isActive, isToday })
     }

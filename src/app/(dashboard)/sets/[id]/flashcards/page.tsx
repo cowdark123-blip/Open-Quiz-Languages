@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import NavigationGuard from '@/components/NavigationGuard'
-import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem } from '@/lib/supabase/data-service'
+import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem, checkAndUpdateStreak } from '@/lib/supabase/data-service'
 import { VocabItem, VocabSet } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import * as React from 'react'
@@ -105,6 +105,13 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
   const handleNextCard = useCallback((known: boolean) => {
     if (!currentCard) return
+
+    // Trigger streak on first card interaction
+    if (currentIndex === 0) {
+      checkAndUpdateStreak(undefined, 'flashcard').then(() => {
+        window.dispatchEvent(new Event('streak-updated'))
+      }).catch(console.error)
+    }
 
     if (known) {
       setMasteredCount((prev) => prev + 1)

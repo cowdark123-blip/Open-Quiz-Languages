@@ -7,9 +7,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   display_name TEXT NOT NULL DEFAULT 'Học viên OpenQuiz',
   avatar_url TEXT,
-  streak_count INT DEFAULT 1,
+  streak_count INT DEFAULT 0,
+  best_streak INT DEFAULT 0,
   target_band TEXT DEFAULT 'co_ban',
-  last_active_date DATE DEFAULT CURRENT_DATE,
+  last_active_date DATE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -185,3 +186,15 @@ CREATE TABLE IF NOT EXISTS public.active_learning_sessions (
 );
 ALTER TABLE public.active_learning_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Active Sessions Own Access" ON public.active_learning_sessions FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 9. ACTIVITY LOGS TABLE (Streak History)
+CREATE TABLE IF NOT EXISTS public.activity_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  activity_date DATE NOT NULL,
+  activity_type TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, activity_date)
+);
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Activity Logs Own Access" ON public.activity_logs FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

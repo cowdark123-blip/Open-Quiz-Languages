@@ -35,7 +35,7 @@ export async function updateUserProfile(updates: Partial<Profile>): Promise<bool
   }
 }
 
-export async function checkAndUpdateStreak(userId?: string): Promise<number> {
+export async function checkAndUpdateStreak(userId?: string, activityType: string = 'general'): Promise<number> {
   const supabase = createClient()
   try {
     let targetUserId = userId
@@ -43,7 +43,7 @@ export async function checkAndUpdateStreak(userId?: string): Promise<number> {
       const { data: { user } } = await supabase.auth.getUser()
       targetUserId = user?.id
     }
-    if (!targetUserId) return 1
+    if (!targetUserId) return 0
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -56,19 +56,35 @@ export async function checkAndUpdateStreak(userId?: string): Promise<number> {
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayStr = yesterday.toISOString().split('T')[0]
 
-    let newStreak = 1
+    let newStreak = 0
     const lastActive = profile?.last_active_date
 
     if (lastActive === todayStr) {
-      newStreak = profile?.streak_count || 1
+      // Đã học hôm nay, giữ streak hiện tại
+      newStreak = profile?.streak_count || 0
     } else if (lastActive === yesterdayStr) {
+      // Học hôm qua, tăng streak +1
       newStreak = (profile?.streak_count || 0) + 1
-    } else {
+    } else if (!lastActive) {
+      // Lần đầu học
       newStreak = 1
+    } else {
+      // Đứt streak, reset về 0
+      newStreak = 0
     }
 
     const bestStreak = Math.max(newStreak, profile?.best_streak || 0)
 
+    // Log activity vào activity_logs
+    await supabase.from('activity_logs').upsert({
+      user_id: targetUserId,
+      activity_date: todayStr,
+      activity_type: activityType,
+    }, {
+      onConflict: 'user_id,activity_date',
+    })
+
+    // Update profile
     await supabase.from('profiles').upsert({
       id: targetUserId,
       streak_count: newStreak,
@@ -79,11 +95,39 @@ export async function checkAndUpdateStreak(userId?: string): Promise<number> {
     return newStreak
   } catch (err) {
     console.error('Update streak error:', err)
-    return 1
+    return 0
   }
 }
 
 export const updateUserStreak = checkAndUpdateStreak
+
+export async function getActivityHistory(userId?: string, days: number = 28): Promise<string[]> {
+  const supabase = createClient()
+  try {
+    let targetUserId = userId
+    if (!targetUserId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      targetUserId = user?.id
+    }
+    if (!targetUserId) return []
+
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - days + 1)
+    const startDateStr = startDate.toISOString().split('T')[0]
+
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .select('activity_date')
+      .eq('user_id', targetUserId)
+      .gte('activity_date', startDateStr)
+      .order('activity_date', { ascending: true })
+
+    if (error || !data) return []
+    return data.map(row => row.activity_date)
+  } catch {
+    return []
+  }
+}
 
 export async function fetchUserVocabSets(userId?: string): Promise<VocabSet[]> {
   const supabase = createClient()
