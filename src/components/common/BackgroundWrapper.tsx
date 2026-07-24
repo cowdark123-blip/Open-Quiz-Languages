@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Volume2, VolumeX } from 'lucide-react'
+import YouTube from 'react-youtube'
 import { useBackground, BackgroundTheme } from '@/contexts/BackgroundContext'
 
 const themeBgClasses: Record<BackgroundTheme, string> = {
@@ -15,15 +16,44 @@ const themeBgClasses: Record<BackgroundTheme, string> = {
 export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
   const { theme } = useBackground()
   const [isMuted, setIsMuted] = useState(true)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [player, setPlayer] = useState<any>(null)
+  
+  const videoId = theme.startsWith('youtube:') ? theme.split(':')[1] : null
+
+  useEffect(() => {
+    if (!player || !videoId) return
+    const interval = setInterval(() => {
+      try {
+        const time = player.getCurrentTime()
+        if (time && time > 0) {
+          localStorage.setItem(`yt_progress_${videoId}`, time.toString())
+        }
+      } catch (e) {}
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [player, videoId])
+
+  const onReady = (event: any) => {
+    setPlayer(event.target)
+    if (isMuted) {
+      event.target.mute()
+    } else {
+      event.target.unMute()
+    }
+    const savedTime = localStorage.getItem(`yt_progress_${videoId}`)
+    if (savedTime) {
+      event.target.seekTo(parseFloat(savedTime))
+    }
+    event.target.playVideo()
+  }
 
   const toggleMute = () => {
-    if (iframeRef.current && iframeRef.current.contentWindow) {
-      const command = isMuted ? 'unMute' : 'mute'
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ event: 'command', func: command, args: [] }),
-        '*'
-      )
+    if (player) {
+      if (isMuted) {
+        player.unMute()
+      } else {
+        player.mute()
+      }
       setIsMuted(!isMuted)
     }
   }
@@ -42,24 +72,25 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
             className="fixed inset-0 z-0 overflow-hidden bg-black"
           >
             <div className="absolute inset-0 pointer-events-none z-0">
-              <iframe
-                ref={iframeRef}
-                src={`https://www.youtube.com/embed/${theme.split(':')[1]}?autoplay=1&mute=1&loop=1&controls=0&playlist=${theme.split(':')[1]}&rel=0&showinfo=0&enablejsapi=1`}
+              <YouTube
+                videoId={videoId!}
+                opts={{
+                  playerVars: {
+                    autoplay: 1,
+                    controls: 0,
+                    loop: 1,
+                    playlist: videoId!,
+                    rel: 0,
+                    showinfo: 0,
+                    mute: isMuted ? 1 : 0,
+                  },
+                }}
+                onReady={onReady}
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh]"
-                style={{ border: 'none' }}
-                allow="autoplay; encrypted-media"
+                iframeClassName="w-full h-full border-none"
               />
               <div className="absolute inset-0 bg-slate-950/60" /> {/* Dark overlay for readability */}
             </div>
-            
-            {/* Volume Toggle Button */}
-            <button
-              onClick={toggleMute}
-              className="absolute bottom-6 right-6 z-50 p-3 bg-slate-900/80 hover:bg-slate-800 text-white rounded-full backdrop-blur-md border border-slate-700/50 shadow-xl transition-all hover:scale-110 active:scale-95"
-              aria-label={isMuted ? 'Unmute Background Video' : 'Mute Background Video'}
-            >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </button>
           </motion.div>
         ) : theme.startsWith('image:') ? (
           <motion.div
@@ -170,6 +201,20 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
 
       {/* Content wrapper */}
       <div className="relative z-10 min-h-screen w-full">{children}</div>
+
+      {/* Floating Draggable Volume Button */}
+      {videoId && (
+        <motion.button
+          drag
+          dragMomentum={false}
+          whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
+          onClick={toggleMute}
+          className="fixed bottom-6 right-6 z-[100] p-4 bg-slate-900/90 hover:bg-slate-800 text-white rounded-full backdrop-blur-md border border-slate-700/50 shadow-2xl transition-colors cursor-grab active:cursor-grabbing"
+          aria-label={isMuted ? 'Unmute Background Video' : 'Mute Background Video'}
+        >
+          {isMuted ? <VolumeX className="w-6 h-6 pointer-events-none" /> : <Volume2 className="w-6 h-6 pointer-events-none" />}
+        </motion.button>
+      )}
     </div>
   )
 }
