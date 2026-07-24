@@ -155,44 +155,48 @@ export async function fetchVocabItems(setId: string): Promise<VocabItem[]> {
   }
 }
 
-export async function fetchDueSRSItems(): Promise<(VocabItem & { srsProgress?: UserSRSProgress })[]> {
+export async function fetchDueSRSItems(setId?: string): Promise<(VocabItem & { srsProgress?: UserSRSProgress })[]> {
   const supabase = createClient()
   try {
     const { data: { user } } = await supabase.auth.getUser()
     const userId = user?.id || '00000000-0000-0000-0000-000000000000'
 
-    const nowIso = new Date().toISOString()
-    const { data: progressItems } = await supabase
-      .from('user_srs_progress')
-      .select('*, vocab_items(*)')
-      .eq('user_id', userId)
-      .lte('next_review_date', nowIso)
+    let itemsQuery = supabase.from('vocab_items').select('*, user_srs_progress(*)')
+    
+    if (setId) {
+      itemsQuery = itemsQuery.eq('set_id', setId)
+    } else {
+      const { data: userSets } = await supabase
+        .from('vocab_sets')
+        .select('id')
+        .or(`user_id.eq.${userId},is_public.eq.true`)
 
-    if (progressItems && progressItems.length > 0) {
-      return progressItems
-        .filter((p: any) => p.vocab_items)
-        .map((p: any) => ({
-          ...p.vocab_items,
-          srsProgress: p as UserSRSProgress,
-        }))
+      if (!userSets || userSets.length === 0) return []
+      const setIds = userSets.map((s) => s.id)
+      itemsQuery = itemsQuery.in('set_id', setIds)
     }
 
-    // If no progress records lte nowIso exist, fetch user's sets items so user can initialize SM-2
-    const { data: userSets } = await supabase
-      .from('vocab_sets')
-      .select('id')
-      .or(`user_id.eq.${userId},is_public.eq.true`)
+    const { data: items } = await itemsQuery
+    if (!items) return []
 
-    if (!userSets || userSets.length === 0) return []
-    const setIds = userSets.map((s) => s.id)
+    const now = new Date().getTime()
+    const dueItems: (VocabItem & { srsProgress?: UserSRSProgress })[] = []
+    
+    for (const item of items) {
+      const progress = item.user_srs_progress?.find((p: any) => p.user_id === userId) || item.user_srs_progress?.[0]
+      if (!progress) {
+        dueItems.push({ ...item, srsProgress: undefined, user_srs_progress: undefined })
+      } else {
+        const nextReviewTime = new Date(progress.next_review_date).getTime()
+        if (nextReviewTime <= now) {
+          dueItems.push({ ...item, srsProgress: progress, user_srs_progress: undefined })
+        }
+      }
+    }
 
-    const { data: allItems } = await supabase
-      .from('vocab_items')
-      .select('*')
-      .in('set_id', setIds)
-
-    return (allItems as VocabItem[]) || []
-  } catch {
+    return dueItems
+  } catch (err) {
+    console.error('Failed to fetch due SRS items', err)
     return []
   }
 }
@@ -307,12 +311,18 @@ export async function saveSRSProgress(progress: Partial<UserSRSProgress>): Promi
       onConflict: 'user_id,item_id',
     })
 
+    if (error) {
+      console.error('Supabase SRS Upsert Error:', error)
+      throw new Error(error.message)
+    }
+
     // Update streak for active learning activity
     await updateUserStreak(userId)
 
-    return !error
-  } catch {
-    return false
+    return true
+  } catch (err: any) {
+    console.error('Save SRS Progress exception:', err)
+    throw err
   }
 }
 
@@ -424,3 +434,21 @@ export async function seedSampleSetForUser(): Promise<VocabSet | null> {
 }
 
 export const seedInitialDatabase = seedSampleSetForUser
+
+export async function fetchAllUserSRSProgress(): Promise<UserSRSProgress[]> {
+  const supabase = createClient()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const { data, error } = await supabase
+      .from('user_srs_progress')
+      .select('*')
+      .eq('user_id', user.id)
+
+    if (error || !data) return []
+    return data as UserSRSProgress[]
+  } catch {
+    return []
+  }
+}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, saveQuizResult } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { Trophy, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import NavigationGuard from '@/components/NavigationGuard'
 
 type QuizQuestion = {
   vocab: VocabItem
@@ -122,8 +123,9 @@ export default function QuizPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+    <NavigationGuard isDirty={questions.length > 0 && !isFinished}>
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Trophy className="w-6 h-6 text-rose-400" />
@@ -258,5 +260,6 @@ export default function QuizPage() {
         </div>
       )}
     </div>
+    </NavigationGuard>
   )
 }

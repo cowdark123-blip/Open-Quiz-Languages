@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCcw } from 'lucide-react'
+import NavigationGuard from '@/components/NavigationGuard'
 
 export default function DictationPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -125,6 +126,7 @@ export default function DictationPage() {
   }
 
   return (
+    <NavigationGuard isDirty={input.trim().length > 0 && !checked}>
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
@@ -242,5 +244,6 @@ export default function DictationPage() {
         </div>
       ) : null}
     </div>
+    </NavigationGuard>
   )
 }

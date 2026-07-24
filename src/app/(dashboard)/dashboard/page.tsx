@@ -11,6 +11,7 @@ import {
 } from '@/lib/supabase/data-service'
 import { VocabSet } from '@/types/database'
 import { Flame, Brain, BookOpen, Mic, Sparkles, CheckCircle2, Clock, Play, Plus, Loader2, MessageSquare, PenTool, BookText, Headphones, Trophy } from 'lucide-react'
+import SRSForecastChart from '@/components/SRSForecastChart'
 
 export default function DashboardPage() {
   const [sets, setSets] = useState<VocabSet[]>([])
@@ -60,6 +61,8 @@ export default function DashboardPage() {
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Top Banner: Daily Review Alert or Congratulation */}
       <SRSDashboardWidget displayName={userProfile.displayName} />
+      
+      <SRSForecastChart />
 
 
       {/* Ecosystem Navigation Grid */}
@@ -287,11 +290,11 @@ function SRSDashboardWidget({ displayName }: { displayName: string }) {
 
       {dueSrsCount > 0 ? (
         <Link
-          href="/srs"
+          href="/sets"
           className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-500/25 transition-all transform hover:scale-105 shrink-0 flex items-center gap-2"
         >
           <Play className="w-4 h-4 fill-white" />
-          <span>Bắt Đầu Bài Ôn Tập SRS ({dueSrsCount})</span>
+          <span>Xem Các Bộ Từ Để Học ({dueSrsCount})</span>
         </Link>
       ) : (
         <Link

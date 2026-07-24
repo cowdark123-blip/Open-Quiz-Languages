@@ -368,7 +368,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
             <span>Học Thẻ 3D</span>
           </Link>
           <Link
-            href="/srs"
+            href={`/sets/${setId}/srs`}
             className="px-4 py-2.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 font-semibold text-xs transition-all flex items-center gap-2"
           >
             <Brain className="w-4 h-4 text-cyan-400" />
