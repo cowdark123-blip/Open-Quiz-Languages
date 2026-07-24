@@ -15,8 +15,6 @@ interface DictionaryPopoverProps {
 export default function DictionaryPopover({ word, contextSentence, onClose }: DictionaryPopoverProps) {
   const { vocabSets, addWordToSet, createSetAndAddWord, isWordSaved } = useVocab()
   
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<any>(null)
   const [error, setError] = useState('')
   
   const [selectedSetId, setSelectedSetId] = useState<string>('')
@@ -26,7 +24,7 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
   const [saved, setSaved] = useState(false)
   const [isAudioPlaying, setIsAudioPlaying] = useState(false)
 
-  const isAlreadySaved = isWordSaved(data?.term || word)
+  const isAlreadySaved = isWordSaved(word)
 
   useEffect(() => {
     if (vocabSets.length > 0 && !selectedSetId) {
@@ -34,31 +32,7 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
     }
   }, [vocabSets, selectedSetId])
 
-  useEffect(() => {
-    async function fetchDefinition() {
-      try {
-        const res = await fetch('/api/ai/dictionary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ word, contextSentence })
-        })
-        const json = await res.json()
-        if (json.success) {
-          setData(json.data)
-        } else {
-          setError('Không thể lấy định nghĩa.')
-        }
-      } catch (err) {
-        setError('Lỗi kết nối.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchDefinition()
-  }, [word, contextSentence])
-
   const handleSave = async () => {
-    if (!data) return
     setSaving(true)
     let success = false
     
@@ -68,14 +42,14 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
         setSaving(false)
         return
       }
-      success = await createSetAndAddWord(newSetName, data.term, data.definition, data.ipa, data.vietnameseTranslation, data.exampleSentence)
+      success = await createSetAndAddWord(newSetName, word, '', '', '', contextSentence)
     } else {
       if (!selectedSetId) {
         alert('Vui lòng chọn bộ từ')
         setSaving(false)
         return
       }
-      success = await addWordToSet(selectedSetId, data.term, data.definition, data.ipa, data.vietnameseTranslation, data.exampleSentence)
+      success = await addWordToSet(selectedSetId, word, '', '', '', contextSentence)
     }
 
     if (success) {
@@ -108,23 +82,17 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
       </div>
 
       <div className="p-5 space-y-4">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-6 text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin text-purple-500 mb-2" />
-            <span className="text-xs">Đang tra từ...</span>
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="text-center text-red-400 py-4 text-sm">{error}</div>
-        ) : data ? (
+        ) : (
           <>
             <div>
               <div className="flex items-end gap-3 mb-1">
-                <span className="text-2xl font-black text-white">{data.term}</span>
-                {data.ipa && <span className="text-sm font-mono text-purple-300 italic mb-1">{data.ipa}</span>}
+                <span className="text-2xl font-black text-white">{word}</span>
                 <button 
                   onClick={async () => {
                     setIsAudioPlaying(true)
-                    await playTTS(data.term)
+                    await playTTS(word)
                     setIsAudioPlaying(false)
                   }} 
                   disabled={isAudioPlaying}
@@ -133,13 +101,11 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
                   {isAudioPlaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-slate-300 text-sm font-medium">{data.definition}</p>
-              <p className="text-purple-300 text-sm font-semibold mt-1">{data.vietnameseTranslation}</p>
             </div>
 
             <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800/50">
               <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ví dụ ngữ cảnh</span>
-              <p className="text-xs text-slate-300 italic">"{data.exampleSentence}"</p>
+              <p className="text-xs text-slate-300 italic">"{contextSentence}"</p>
             </div>
 
             {isAlreadySaved ? (
@@ -220,7 +186,7 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Tra từ điển ngoại vi 🌐</div>
               <div className="flex gap-2">
                 <a 
-                  href={`https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent((data.term || word).toLowerCase())}`}
+                  href={`https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent((word).toLowerCase())}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 py-1.5 border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
@@ -229,7 +195,7 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
                   Cambridge 📘
                 </a>
                 <a 
-                  href={`http://tracuu.soha.vn/dict/en_vn/${encodeURIComponent((data.term || word).toLowerCase())}`}
+                  href={`http://tracuu.soha.vn/dict/en_vn/${encodeURIComponent((word).toLowerCase())}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 py-1.5 border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
@@ -240,7 +206,7 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
               </div>
             </div>
           </>
-        ) : null}
+        )}
       </div>
     </motion.div>
   )
