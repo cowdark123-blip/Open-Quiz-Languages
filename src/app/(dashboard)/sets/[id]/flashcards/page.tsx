@@ -8,6 +8,7 @@ import NavigationGuard from '@/components/NavigationGuard'
 import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem } from '@/lib/supabase/data-service'
 import { VocabItem, VocabSet } from '@/types/database'
 import { playTTS } from '@/lib/tts'
+import * as React from 'react'
 import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
 import { Volume2, ArrowLeft, RotateCcw, CheckCircle, XCircle, Sparkles, Trophy, Brain, Keyboard, Loader2, Star } from 'lucide-react'
 
@@ -25,6 +26,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const [reviewCount, setReviewCount] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
   const [toast, setToast] = useState('')
+  const pendingSaves = React.useRef<Promise<any>[]>([])
 
   const toggleStar = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -79,14 +81,19 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
           : c
       ))
 
-      // Fire and forget API call so it doesn't block UI transition
-      saveSRSProgress({
+      // Fire and forget API call so it doesn't block UI transition, but track it to await on exit
+      const savePromise = saveSRSProgress({
         item_id: currentCard.id,
         repetition: 4,
         interval: 21,
         status: 'mastered',
         next_review_date: nextDate.toISOString()
       }).catch(console.error)
+
+      pendingSaves.current.push(savePromise)
+      savePromise.finally(() => {
+        pendingSaves.current = pendingSaves.current.filter(p => p !== savePromise)
+      })
 
       setToast(`🎉 Đã đánh dấu thành thạo từ "${currentCard.term}"!`)
       setTimeout(() => setToast(''), 3000)
@@ -115,6 +122,9 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   }
 
   const handleSaveAndExit = async () => {
+    if (pendingSaves.current.length > 0) {
+      await Promise.allSettled(pendingSaves.current)
+    }
     await saveActiveSession('flashcards', setId, {
       cards,
       currentIndex,
@@ -125,6 +135,9 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   }
 
   const handleDiscardAndExit = async () => {
+    if (pendingSaves.current.length > 0) {
+      await Promise.allSettled(pendingSaves.current)
+    }
     await deleteActiveSession('flashcards', setId)
     router.push(`/sets/${setId}`)
   }
