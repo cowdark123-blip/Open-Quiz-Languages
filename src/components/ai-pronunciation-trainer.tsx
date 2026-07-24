@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Mic, Square, Loader2, RotateCcw, AlertCircle } from 'lucide-react'
+import { Mic, Square, Loader2, RotateCcw, AlertCircle, X, Volume2, ArrowUp } from 'lucide-react'
+import { playTTS } from '@/lib/tts'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface SyllableBreakdown {
   syllable: string
@@ -30,6 +32,10 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
   const [evaluating, setEvaluating] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [result, setResult] = useState<EvaluationResult | null>(null)
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [recordTime, setRecordTime] = useState(0)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -89,6 +95,8 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
 
       mediaRecorder.start()
       setIsRecording(true)
+      setIsModalOpen(true)
+      setRecordTime(0)
 
       if (recognitionRef.current) {
         try {
@@ -100,6 +108,30 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
     } catch {
       setErrorMsg('Không thể kết nối Micro. Vui lòng cấp quyền sử dụng micro trên trình duyệt!')
     }
+  }
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isRecording && isModalOpen) {
+      interval = setInterval(() => {
+        setRecordTime(prev => {
+          if (prev >= 30) {
+            handleSubmitModal()
+            return 30
+          }
+          return prev + 1
+        })
+      }, 1000)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [isRecording, isModalOpen])
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
   }
 
   const stopRecordingAndEvaluate = async () => {
@@ -191,6 +223,16 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
     audioChunksRef.current = []
   }
 
+  const handleCancelModal = () => {
+    setIsModalOpen(false)
+    handleRetry()
+  }
+
+  const handleSubmitModal = () => {
+    setIsModalOpen(false)
+    stopRecordingAndEvaluate()
+  }
+
   return (
     <div className="p-4 rounded-2xl bg-slate-900/90 border border-purple-500/30 text-left space-y-4 shadow-xl select-none" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -219,37 +261,14 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
       {/* State 1 & 2: Record / Stop controls */}
       {!result && !evaluating && (
         <div className="flex flex-col items-center justify-center py-2 space-y-3">
-          {!isRecording ? (
-            <button
-              type="button"
-              onClick={startRecording}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-500/20 transition-all flex items-center gap-2"
-            >
-              <Mic className="w-4 h-4 text-white" />
-              <span>Nói từ &quot;{targetWord}&quot; ngay 🎙️</span>
-            </button>
-          ) : (
-            <div className="flex flex-col items-center space-y-2">
-              <div className="relative flex items-center justify-center">
-                <div className="w-12 h-12 rounded-full bg-purple-500/30 animate-ping absolute" />
-                <button
-                  type="button"
-                  onClick={stopRecordingAndEvaluate}
-                  className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg relative z-10"
-                >
-                  <Square className="w-5 h-5 fill-white" />
-                </button>
-              </div>
-              <span className="text-[11px] text-purple-300 font-semibold animate-pulse">
-                Đang thu âm... Nhấn dừng khi nói xong
-              </span>
-            </div>
-          )}
-          {transcript && (
-            <p className="text-xs text-slate-300 italic bg-slate-950/60 p-2 rounded-lg border border-slate-800 max-w-full truncate">
-              Văn bản: &quot;{transcript}&quot;
-            </p>
-          )}
+          <button
+            type="button"
+            onClick={startRecording}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-500/20 transition-all flex items-center gap-2 w-full justify-center"
+          >
+            <Mic className="w-4 h-4 text-white" />
+            <span>Nói từ "{targetWord}" ngay 🎙️</span>
+          </button>
         </div>
       )}
 
@@ -309,6 +328,78 @@ export function AIPronunciationTrainer({ targetWord, targetSentence }: AIPronunc
           )}
         </div>
       )}
+
+      {/* Recording Modal matching UI spec */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#020817]/80 backdrop-blur-sm" onClick={handleCancelModal}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-[400px] bg-[#0f172a] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button onClick={handleCancelModal} className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 z-10">
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="p-5 space-y-4 mt-2">
+                {/* Block 1: Target Text */}
+                <div className="bg-[#1e293b] rounded-xl p-5 flex flex-col justify-center relative">
+                  <div className="flex justify-between items-start w-full mb-3">
+                    <span className="text-sm text-slate-300 font-medium">Đọc văn bản này:</span>
+                    <button onClick={() => playTTS(targetWord)} className="text-slate-400 hover:text-white p-1">
+                      <Volume2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="text-[28px] font-black text-white leading-tight">
+                    {targetWord}
+                  </div>
+                </div>
+
+                {/* Block 2: Recording Area */}
+                <div className="bg-[#1e293b] rounded-xl p-5 space-y-6">
+                  {/* Waveform Visualization */}
+                  <div className="h-6 flex items-center gap-[3px] justify-center overflow-hidden w-full px-2">
+                    {[...Array(40)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        animate={{
+                          height: isRecording ? [4, Math.random() * 20 + 4, 4] : 4,
+                          opacity: isRecording ? [0.4, 1, 0.4] : 0.4
+                        }}
+                        transition={{
+                          repeat: Infinity,
+                          duration: Math.random() * 0.5 + 0.5,
+                          delay: i * 0.05
+                        }}
+                        className="w-1 bg-blue-500 rounded-full"
+                      />
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-sm font-medium text-slate-400">
+                    <span>Tối đa 0:30</span>
+                    <span className={recordTime >= 25 ? 'text-red-400' : 'text-slate-300'}>{formatTime(recordTime)}</span>
+                  </div>
+                </div>
+
+                {/* Block 3: Buttons */}
+                <div className="flex items-center gap-4 pt-2">
+                  <button onClick={handleCancelModal} className="flex-1 py-3.5 rounded-xl bg-transparent border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 hover:text-white transition-colors">
+                    Hủy
+                  </button>
+                  <button onClick={handleSubmitModal} className="flex-1 py-3.5 rounded-xl bg-white text-black font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors">
+                    <ArrowUp className="w-5 h-5" />
+                    <span>Gửi</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
