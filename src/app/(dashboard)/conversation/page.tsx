@@ -26,6 +26,7 @@ export default function ConversationPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [targetBand, setTargetBand] = useState('co_ban')
@@ -50,10 +51,48 @@ export default function ConversationPage() {
   useEffect(() => {
     async function loadHistory() {
       const history = await loadConversationHistory(scenario)
-      setMessages(history)
+      if (history.length > 0) {
+        setMessages(history)
+      } else {
+        setMessages([])
+        initiateConversation()
+      }
     }
     loadHistory()
   }, [scenario])
+
+  const initiateConversation = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario, messages: [], targetBand, words: [] })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const finalMessages: Message[] = [
+          { 
+            role: 'assistant', 
+            content: data.reply,
+            grammarFix: null,
+            nativeSuggestion: null
+          }
+        ]
+        setMessages(finalMessages)
+        await saveConversationHistory(scenario, finalMessages)
+        
+        setIsPlaying(true)
+        await playAudio(data.reply)
+        setIsPlaying(false)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const toggleRecording = async () => {
     if (isRecording) {
@@ -139,8 +178,8 @@ export default function ConversationPage() {
     }
   }, [isRecording])
 
-  const playAudio = (text: string) => {
-    playTTS(text)
+  const playAudio = async (text: string) => {
+    await playTTS(text)
   }
 
   const sendMessage = async (overrideInput?: string) => {
@@ -189,7 +228,9 @@ export default function ConversationPage() {
            if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
         }
 
-        playAudio(data.reply)
+        setIsPlaying(true)
+        await playAudio(data.reply)
+        setIsPlaying(false)
       } else {
         console.error('Failed to get response')
       }
@@ -204,6 +245,7 @@ export default function ConversationPage() {
     if (confirm('Bạn có chắc chắn muốn xóa lịch sử trò chuyện này?')) {
       await deleteConversationHistory(scenario)
       setMessages([])
+      initiateConversation()
     }
   }
 
@@ -260,7 +302,11 @@ export default function ConversationPage() {
                   {msg.role === 'assistant' ? <InteractiveText text={msg.content} /> : msg.content}
                 </div>
                 {msg.role === 'assistant' && (
-                  <button onClick={() => playAudio(msg.content)} className="mt-2 text-blue-400 hover:text-blue-300">
+                  <button onClick={async () => {
+                    setIsPlaying(true)
+                    await playAudio(msg.content)
+                    setIsPlaying(false)
+                  }} className="mt-2 text-blue-400 hover:text-blue-300">
                     <Volume2 className="w-4 h-4" />
                   </button>
                 )}
@@ -321,13 +367,13 @@ export default function ConversationPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-          placeholder="Nhập tin nhắn (tiếng Anh)..."
-          className="flex-1 bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-3 outline-none focus:border-blue-500"
-          disabled={loading || isRecording}
+          placeholder={isPlaying ? "Đang nghe AI phản hồi..." : "Nhập tin nhắn (tiếng Anh)..."}
+          className="flex-1 bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-3 outline-none focus:border-blue-500 disabled:opacity-50"
+          disabled={loading || isRecording || isPlaying}
         />
         <button 
           onClick={() => sendMessage()}
-          disabled={!input.trim() || loading || isRecording}
+          disabled={!input.trim() || loading || isRecording || isPlaying}
           className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 transition-all"
         >
           <Send className="w-5 h-5 ml-1" />

@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile } from '@/lib/supabase/data-service'
+import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
-import { Mic, Loader2, Play, Square, Sparkles, MessageCircle, AlertCircle } from 'lucide-react'
+import { Mic, Loader2, Play, Square, Sparkles, MessageCircle, AlertCircle, RotateCcw } from 'lucide-react'
+import NavigationGuard from '@/components/NavigationGuard'
 import MultiSetSelector from '@/components/MultiSetSelector'
 import WordSelector from '@/components/WordSelector'
 import InteractiveText from '@/components/InteractiveText'
@@ -20,6 +21,9 @@ export default function SpeakingPage() {
   const [targetBand, setTargetBand] = useState('co_ban')
 
   const [scenario, setScenario] = useState<{title: string, description: string, expectedWords: string[]} | null>(null)
+  const [pendingSession, setPendingSession] = useState<any>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const isSavedRef = useRef(false)
   
   // Recording states
   const [isRecording, setIsRecording] = useState(false)
@@ -48,13 +52,23 @@ export default function SpeakingPage() {
   }, [sets, selectedSets])
 
   useEffect(() => {
-    const loadItems = async () => {
+    const loadSession = async () => {
       if (selectedSets.length === 0) return
+      setIsLoadingSession(true)
+      const resourceId = selectedSets.slice().sort().join(',')
+      const sessionData = await loadActiveSession('speaking', resourceId)
+      if (sessionData && sessionData.scenario) {
+        setPendingSession(sessionData)
+      } else {
+        setPendingSession(null)
+      }
+
       const fetched = await fetchVocabItemsBySets(selectedSets)
       setFetchedItems(fetched)
       if (fetched.length > 0) setSelectedWords(fetched.map(i => i.id))
+      setIsLoadingSession(false)
     }
-    loadItems()
+    loadSession()
   }, [selectedSets])
 
   const handleGenerateScenario = async () => {
@@ -79,6 +93,10 @@ export default function SpeakingPage() {
       const data = await res.json()
       if (data.scenario) {
         setScenario(data.scenario)
+        const resourceId = selectedSets.slice().sort().join(',')
+        await saveActiveSession('speaking', resourceId, {
+          scenario: data.scenario
+        })
       } else {
         setErrorMsg('Lỗi khi tạo tình huống.')
       }
@@ -241,15 +259,46 @@ export default function SpeakingPage() {
     }
   }
 
-  if (contextLoading) {
+  const handleSaveAndExit = async () => {
+    isSavedRef.current = true
+    if (scenario) {
+      const resourceId = selectedSets.slice().sort().join(',')
+      await saveActiveSession('speaking', resourceId, { scenario })
+    }
+    window.history.go(-2)
+  }
+
+  const handleDiscardAndExit = async () => {
+    isSavedRef.current = true
+    const resourceId = selectedSets.slice().sort().join(',')
+    await deleteActiveSession('speaking', resourceId)
+    window.history.go(-2)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (!isSavedRef.current && scenario) {
+        const resourceId = selectedSets.slice().sort().join(',')
+        deleteActiveSession('speaking', resourceId)
+      }
+    }
+  }, [scenario, selectedSets])
+
+  if (contextLoading || isLoadingSession) {
     return (
       <div className="flex flex-col justify-center items-center py-20 space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
+        <p className="text-slate-400 text-sm">Đang kiểm tra tiến trình đã lưu...</p>
       </div>
     )
   }
 
   return (
+    <NavigationGuard 
+      isDirty={!!scenario}
+      onSaveAndExit={handleSaveAndExit}
+      onDiscardAndExit={handleDiscardAndExit}
+    >
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
@@ -268,7 +317,7 @@ export default function SpeakingPage() {
         </div>
       )}
 
-      {!scenario && (
+      {!pendingSession && !scenario && (
         <details className="glass-panel p-6 rounded-3xl border border-slate-800 group" open>
           <summary className="font-bold text-white text-lg border-b border-slate-800 pb-2 cursor-pointer list-none flex items-center justify-between">
             <span>Cấu hình bài nói</span>
@@ -303,6 +352,34 @@ export default function SpeakingPage() {
             </button>
           </div>
         </details>
+      )}
+
+      {pendingSession && (
+        <div className="glass-panel p-8 rounded-3xl border border-sky-500/30 text-center space-y-4 animate-in fade-in">
+          <h3 className="text-xl font-bold text-white">Phát hiện tình huống đang luyện dở</h3>
+          <p className="text-sm text-slate-400">Bạn có muốn tiếp tục luyện nói tình huống này hay tạo mới?</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+            <button
+              onClick={() => {
+                setScenario(pendingSession.scenario)
+                setPendingSession(null)
+              }}
+              className="px-6 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold transition-all shadow-lg shadow-sky-500/20"
+            >
+              Tiếp Tục Luyện
+            </button>
+            <button
+              onClick={async () => {
+                setPendingSession(null)
+                const resourceId = selectedSets.slice().sort().join(',')
+                await deleteActiveSession('speaking', resourceId)
+              }}
+              className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+            >
+              Tạo Tình Huống Mới
+            </button>
+          </div>
+        </div>
       )}
 
       {scenario && (
@@ -397,12 +474,28 @@ export default function SpeakingPage() {
                     <InteractiveText text={finalScore.feedback} />
                   </p>
                   
-                  <button
-                    onClick={() => setScenario(null)}
-                    className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-all"
-                  >
-                    Tạo tình huống khác
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                    <button
+                      onClick={() => {
+                        setFinalScore(null)
+                        setTranscript('')
+                        setHasRecorded(false)
+                      }}
+                      className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-700"
+                    >
+                      <RotateCcw className="w-5 h-5" /> Thử Lại
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setScenario(null)
+                        const resourceId = selectedSets.slice().sort().join(',')
+                        await deleteActiveSession('speaking', resourceId)
+                      }}
+                      className="flex-1 px-4 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-sky-500/20"
+                    >
+                      Đi tiếp (Tình huống mới)
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -410,5 +503,6 @@ export default function SpeakingPage() {
         </div>
       )}
     </div>
+    </NavigationGuard>
   )
 }

@@ -12,6 +12,23 @@ interface WordSelectorProps {
 
 export default function WordSelector({ items, selectedIds, onChange, disabled }: WordSelectorProps) {
   const { vocabSets } = useVocab()
+  const [openStates, setOpenStates] = React.useState<Record<string, boolean>>({})
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('wordSelectorOpenStates')
+      if (saved) setOpenStates(JSON.parse(saved))
+    } catch (e) {}
+  }, [])
+
+  const handleToggleDetails = (setId: string, isOpen: boolean) => {
+    setOpenStates(prev => {
+      const next = { ...prev, [setId]: isOpen }
+      localStorage.setItem('wordSelectorOpenStates', JSON.stringify(next))
+      return next
+    })
+  }
+
   const handleToggleAll = () => {
     if (selectedIds.length === items.length) {
       onChange([])
@@ -58,7 +75,12 @@ export default function WordSelector({ items, selectedIds, onChange, disabled }:
           const setTitle = setInfo?.title || 'Từ vựng đã chọn'
           
           return (
-            <details key={setId} className="space-y-3 group" open>
+            <details 
+              key={setId} 
+              className="space-y-3 group" 
+              open={openStates[setId] !== false}
+              onToggle={(e) => handleToggleDetails(setId, e.currentTarget.open)}
+            >
               <summary className="text-sm font-bold text-slate-400 border-b border-slate-800 pb-2 flex items-center justify-between cursor-pointer list-none hover:text-purple-300 transition-colors">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500 group-open:rotate-90 transition-transform">▶</span>
