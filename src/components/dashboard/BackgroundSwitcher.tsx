@@ -71,7 +71,7 @@ export function BackgroundSwitcher({ isOpen, onClose }: BackgroundSwitcherProps)
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           {/* Backdrop click */}
           <motion.div
             initial={{ opacity: 0 }}
