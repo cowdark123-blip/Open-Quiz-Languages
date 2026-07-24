@@ -1,7 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Volume2, VolumeX } from 'lucide-react'
 import { useBackground, BackgroundTheme } from '@/contexts/BackgroundContext'
 
 const themeBgClasses: Record<BackgroundTheme, string> = {
@@ -13,6 +14,19 @@ const themeBgClasses: Record<BackgroundTheme, string> = {
 
 export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
   const { theme } = useBackground()
+  const [isMuted, setIsMuted] = useState(true)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  const toggleMute = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      const command = isMuted ? 'unMute' : 'mute'
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: command, args: [] }),
+        '*'
+      )
+      setIsMuted(!isMuted)
+    }
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden">
@@ -25,15 +39,27 @@ export function BackgroundWrapper({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1.5, ease: 'easeInOut' }}
-            className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-black"
+            className="fixed inset-0 z-0 overflow-hidden bg-black"
           >
-            <iframe
-              src={`https://www.youtube.com/embed/${theme.split(':')[1]}?autoplay=1&mute=1&loop=1&controls=0&playlist=${theme.split(':')[1]}&rel=0&showinfo=0`}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh]"
-              style={{ border: 'none' }}
-              allow="autoplay; encrypted-media"
-            />
-            <div className="absolute inset-0 bg-slate-950/60" /> {/* Dark overlay for readability */}
+            <div className="absolute inset-0 pointer-events-none z-0">
+              <iframe
+                ref={iframeRef}
+                src={`https://www.youtube.com/embed/${theme.split(':')[1]}?autoplay=1&mute=1&loop=1&controls=0&playlist=${theme.split(':')[1]}&rel=0&showinfo=0&enablejsapi=1`}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh]"
+                style={{ border: 'none' }}
+                allow="autoplay; encrypted-media"
+              />
+              <div className="absolute inset-0 bg-slate-950/60" /> {/* Dark overlay for readability */}
+            </div>
+            
+            {/* Volume Toggle Button */}
+            <button
+              onClick={toggleMute}
+              className="absolute bottom-6 right-6 z-50 p-3 bg-slate-900/80 hover:bg-slate-800 text-white rounded-full backdrop-blur-md border border-slate-700/50 shadow-xl transition-all hover:scale-110 active:scale-95"
+              aria-label={isMuted ? 'Unmute Background Video' : 'Mute Background Video'}
+            >
+              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </button>
           </motion.div>
         ) : theme.startsWith('image:') ? (
           <motion.div
