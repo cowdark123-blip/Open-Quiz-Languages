@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "push": "pwsh scripts/auto-push.ps1",
+    "push:msg": "pwsh scripts/auto-push.ps1 -message"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
