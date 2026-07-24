@@ -68,7 +68,6 @@ export default function DashboardLayout({
   const navItems = [
     { name: 'Bảng Điều Khiển', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Bộ Từ Vựng', href: '/sets', icon: Layers },
-    { name: 'Bài Học SRS', href: '/srs', icon: BookOpen },
     { name: 'Cài đặt', href: '/settings', icon: Settings },
     { name: 'Trang chủ', href: '/', icon: Home },
   ]
