@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import DictionaryPopover from './DictionaryPopover'
 import { useVocab } from '@/contexts/VocabContext'
+import { AnimatePresence } from 'framer-motion'
 
 interface InteractiveTextProps {
   text: string
@@ -17,7 +18,10 @@ export default function InteractiveText({ text, className = '', containerContext
   // Basic tokenization: split by spaces/newlines
   const chunks = text.split(/(\s+)/)
 
+  const selectedWord = selectedIndex !== null ? chunks[selectedIndex].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g,"").toLowerCase().trim() : null
+
   return (
+    <>
     <span className={`relative ${className}`}>
       {chunks.map((chunk, i) => {
         if (/^\s+$/.test(chunk)) {
@@ -38,16 +42,23 @@ export default function InteractiveText({ text, className = '', containerContext
             >
               {chunk}
             </span>
-            {selectedIndex === i && (
-              <DictionaryPopover 
-                word={cleanWord}
-                contextSentence={containerContext || text}
-                onClose={() => setSelectedIndex(null)}
-              />
-            )}
           </span>
         )
       })}
     </span>
+    
+    <AnimatePresence mode="wait">
+      {selectedIndex !== null && selectedWord && (
+        <div className="fixed inset-0 z-40" onClick={() => setSelectedIndex(null)}>
+          <DictionaryPopover 
+            key={selectedWord}
+            word={selectedWord}
+            contextSentence={containerContext || text}
+            onClose={() => setSelectedIndex(null)}
+          />
+        </div>
+      )}
+    </AnimatePresence>
+    </>
   )
 }

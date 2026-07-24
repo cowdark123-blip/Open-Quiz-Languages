@@ -91,8 +91,9 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
     <motion.div 
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="absolute z-50 mt-2 w-80 sm:w-96 glass-panel rounded-2xl border border-purple-500/30 shadow-2xl overflow-hidden"
-      style={{ left: '50%', transform: 'translateX(-50%)' }}
+      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+      className="absolute z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-sm sm:w-96 max-h-[85vh] overflow-y-auto glass-panel rounded-2xl border border-purple-500/30 shadow-2xl"
       onClick={(e) => e.stopPropagation()} // Prevent bubbling up to the InteractiveText container
     >
       <div className="bg-slate-900/80 p-4 border-b border-slate-800 flex items-start justify-between">
@@ -110,37 +111,54 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
           <div className="text-center text-red-400 py-4 text-sm">{error}</div>
         ) : (
           <>
-            <div>
-              <div className="flex items-end gap-3 mb-1">
-                <span className="text-2xl font-black text-white">{word}</span>
-                <button 
-                  onClick={async () => {
-                    setIsAudioPlaying(true)
-                    await playTTS(word)
-                    setIsAudioPlaying(false)
-                  }} 
-                  disabled={isAudioPlaying}
-                  className="p-1.5 rounded-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 mb-0.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAudioPlaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800/50 space-y-2">
-              <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ví dụ ngữ cảnh AI</span>
-              {loadingDict ? (
-                <div className="flex items-center gap-2 text-slate-400 text-xs">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Đang tạo ngữ cảnh...
+            <div className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl font-black text-white">{dictData ? dictData.term : word}</span>
+                  <button 
+                    onClick={async () => {
+                      setIsAudioPlaying(true)
+                      await playTTS(dictData ? dictData.term : word)
+                      setIsAudioPlaying(false)
+                    }} 
+                    disabled={isAudioPlaying}
+                    className="p-1.5 rounded-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAudioPlaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
+                  </button>
                 </div>
-              ) : dictData ? (
+                
+                {loadingDict ? (
+                  <div className="flex items-center gap-2 text-slate-400 text-sm mt-2">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Đang tra cứu AI...
+                  </div>
+                ) : dictData && (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      {dictData.ipa && <span className="text-purple-300 font-mono text-sm">/{dictData.ipa}/</span>}
+                    </div>
+                    <div className="text-emerald-400 font-bold text-lg">{dictData.vietnameseTranslation}</div>
+                  </>
+                )}
+              </div>
+
+              {dictData && (
                 <>
-                  <p className="text-xs text-slate-300 italic">"{dictData.exampleSentence}"</p>
-                  <p className="text-[11px] text-emerald-400 font-medium">{dictData.exampleTranslation}</p>
-                  {dictData.exampleIpa && <p className="text-[10px] text-purple-300 font-mono">/{dictData.exampleIpa}/</p>}
+                  <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-800/50 space-y-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ví dụ minh họa AI</span>
+                    <p className="text-sm text-slate-300 italic">"{dictData.exampleSentence}"</p>
+                    <p className="text-xs text-emerald-400/90 font-medium">{dictData.exampleTranslation}</p>
+                  </div>
+
+                  {dictData.synonyms && (
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Đồng nghĩa:</span>
+                      <span className="text-xs text-sky-300 bg-sky-500/10 px-2 py-1 rounded border border-sky-500/20">
+                        {dictData.synonyms}
+                      </span>
+                    </div>
+                  )}
                 </>
-              ) : (
-                <p className="text-xs text-slate-300 italic">"{contextSentence}"</p>
               )}
             </div>
 

@@ -38,11 +38,10 @@ export async function POST(req: Request) {
       {
         "term": "the base form of the word (e.g., if input is 'running', return 'run')",
         "ipa": "IPA pronunciation of the term",
-        "definition": "English definition of the term",
-        "vietnameseTranslation": "Vietnamese translation",
-        "exampleSentence": "A newly generated, simple example sentence using the term.",
-        "exampleTranslation": "Vietnamese translation of the example sentence",
-        "exampleIpa": "IPA pronunciation of the term"
+        "vietnameseTranslation": "Vietnamese translation of the term",
+        "exampleSentence": "A newly generated, simple example sentence using the term. DO NOT quote the provided context.",
+        "exampleTranslation": "Vietnamese translation of the new example sentence",
+        "synonyms": "A list of 2-3 synonyms separated by commas (or empty string if none)"
       }
     `
 
