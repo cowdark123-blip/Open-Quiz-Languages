@@ -1,13 +1,380 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect, useRef } from 'react'
+import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile } from '@/lib/supabase/data-service'
+import { VocabSet, VocabItem } from '@/types/database'
+import { Mic, Loader2, Play, Square, Sparkles, MessageCircle, AlertCircle } from 'lucide-react'
+import MultiSetSelector from '@/components/MultiSetSelector'
+import WordSelector from '@/components/WordSelector'
+import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
+import { useVocab } from '@/contexts/VocabContext'
 
 export default function SpeakingPage() {
-  const router = useRouter()
-  useEffect(() => {
-    router.replace('/dashboard')
-  }, [router])
+  const { vocabSets: sets, isLoading: contextLoading } = useVocab()
+  const [selectedSets, setSelectedSets] = useState<string[]>([])
+  const [fetchedItems, setFetchedItems] = useState<VocabItem[]>([])
+  const [selectedWords, setSelectedWords] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [targetBand, setTargetBand] = useState('co_ban')
 
-  return null
+  const [scenario, setScenario] = useState<{title: string, description: string, expectedWords: string[]} | null>(null)
+  
+  // Recording states
+  const [isRecording, setIsRecording] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const [finalScore, setFinalScore] = useState<any>(null)
+  const [evaluating, setEvaluating] = useState(false)
+  
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const animationRef = useRef<number | null>(null)
+  const recognitionRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (sets.length > 0 && selectedSets.length === 0) {
+      setSelectedSets([sets[0].id])
+    }
+    const loadProfile = async () => {
+      const { profile } = await getCurrentUserProfile()
+      if (profile?.target_band) setTargetBand(profile.target_band)
+    }
+    loadProfile()
+  }, [sets, selectedSets])
+
+  useEffect(() => {
+    const loadItems = async () => {
+      if (selectedSets.length === 0) return
+      const fetched = await fetchVocabItemsBySets(selectedSets)
+      setFetchedItems(fetched)
+      if (fetched.length > 0) setSelectedWords(fetched.map(i => i.id))
+    }
+    loadItems()
+  }, [selectedSets])
+
+  const handleGenerateScenario = async () => {
+    const targetItems = fetchedItems.filter(i => selectedWords.includes(i.id))
+    if (targetItems.length === 0) {
+      setErrorMsg('Vui lòng chọn ít nhất một từ vựng.')
+      return
+    }
+    setLoading(true)
+    setErrorMsg('')
+    setScenario(null)
+    setFinalScore(null)
+    setTranscript('')
+
+    try {
+      const words = targetItems.map(i => i.term).slice(0, 10)
+      const res = await fetch('/api/ai/speaking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate', words, targetBand })
+      })
+      const data = await res.json()
+      if (data.scenario) {
+        setScenario(data.scenario)
+      } else {
+        setErrorMsg('Lỗi khi tạo tình huống.')
+      }
+    } catch (e) {
+      setErrorMsg('Có lỗi xảy ra kết nối máy chủ.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          noiseSuppression: true,
+          echoCancellation: true,
+          autoGainControl: true
+        } 
+      })
+      mediaStreamRef.current = stream
+
+      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext
+      const audioCtx = new AudioContextCtor()
+      audioContextRef.current = audioCtx
+
+      const source = audioCtx.createMediaStreamSource(stream)
+      const analyser = audioCtx.createAnalyser()
+      analyser.fftSize = 256
+      source.connect(analyser)
+      analyserRef.current = analyser
+
+      drawWaveform()
+      setIsRecording(true)
+      setTranscript('')
+
+      // Speech Recognition
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = true
+        recognition.lang = 'en-US'
+        
+        recognition.onresult = (event: any) => {
+          let currentTranscript = ''
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript
+          }
+          setTranscript(prev => {
+            // Keep finalized parts, but for simplicity we just accumulate
+            // Actually, continuous true means it keeps adding. Let's just use a simple concatenation
+            let finalStr = ''
+            for (let i = 0; i < event.results.length; ++i) {
+                finalStr += event.results[i][0].transcript
+            }
+            return finalStr
+          })
+        }
+        
+        recognition.start()
+        recognitionRef.current = recognition
+      } else {
+        alert('Trình duyệt của bạn không hỗ trợ nhận diện giọng nói (Web Speech API). Vui lòng dùng Chrome hoặc Edge.')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Không thể truy cập Micro.')
+    }
+  }
+
+  const stopRecording = () => {
+    setIsRecording(false)
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop())
+    }
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+    }
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current)
+    }
+  }
+
+  const drawWaveform = () => {
+    if (!canvasRef.current || !analyserRef.current) return
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const analyser = analyserRef.current
+    const bufferLength = analyser.frequencyBinCount
+    const dataArray = new Uint8Array(bufferLength)
+
+    const draw = () => {
+      animationRef.current = requestAnimationFrame(draw)
+      analyser.getByteTimeDomainData(dataArray)
+
+      ctx.fillStyle = 'rgb(15, 23, 42)' // slate-900
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      ctx.lineWidth = 3
+      ctx.strokeStyle = '#0ea5e9' // sky-500
+      ctx.beginPath()
+
+      const sliceWidth = canvas.width * 1.0 / bufferLength
+      let x = 0
+
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0
+        const y = v * canvas.height / 2
+
+        if (i === 0) {
+          ctx.moveTo(x, y)
+        } else {
+          ctx.lineTo(x, y)
+        }
+        x += sliceWidth
+      }
+
+      ctx.lineTo(canvas.width, canvas.height / 2)
+      ctx.stroke()
+    }
+    draw()
+  }
+
+  const evaluateSpeaking = async () => {
+    if (!transcript) return
+    setEvaluating(true)
+    try {
+      const res = await fetch('/api/ai/speaking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'evaluate', 
+          transcript, 
+          expectedWords: scenario?.expectedWords 
+        })
+      })
+      const data = await res.json()
+      if (data.score) {
+        setFinalScore(data.score)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setEvaluating(false)
+    }
+  }
+
+  if (contextLoading) {
+    return (
+      <div className="flex flex-col justify-center items-center py-20 space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 pb-20">
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <MessageCircle className="w-6 h-6 text-sky-400" />
+            Luyện Nói AI (Speaking)
+          </h2>
+          <p className="text-xs text-slate-400">Tạo tình huống và chấm điểm phát âm</p>
+        </div>
+      </div>
+
+      {errorMsg && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5" />
+          <p className="text-sm">{errorMsg}</p>
+        </div>
+      )}
+
+      {!scenario && (
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
+          <h3 className="font-bold text-white text-lg border-b border-slate-800 pb-2">Cấu hình bài nói</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <MultiSetSelector 
+                sets={sets}
+                selectedIds={selectedSets}
+                onChange={setSelectedSets}
+              />
+            </div>
+            <div>
+              <WordSelector 
+                items={fetchedItems}
+                selectedIds={selectedWords}
+                onChange={setSelectedWords}
+              />
+            </div>
+          </div>
+          
+          <button
+            onClick={handleGenerateScenario}
+            disabled={loading || selectedWords.length === 0}
+            className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+            Tạo tình huống AI 🎭
+          </button>
+        </div>
+      )}
+
+      {scenario && (
+        <div className="glass-card p-8 rounded-3xl border border-slate-800 space-y-8 animate-in fade-in">
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-white">{scenario.title}</h3>
+            <p className="text-slate-300 leading-relaxed bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+              {scenario.description}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-sm text-slate-400 py-1">Từ vựng cần dùng:</span>
+              {scenario.expectedWords.map((w, i) => (
+                <span key={i} className="px-2 py-1 rounded bg-sky-500/20 text-sky-300 text-sm border border-sky-500/30">
+                  {w}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4 text-center">
+            <canvas 
+              ref={canvasRef} 
+              width={600} 
+              height={100} 
+              className="w-full max-w-lg mx-auto bg-slate-900 rounded-xl border border-slate-700"
+            />
+            
+            <div className="flex justify-center gap-4">
+              {!isRecording ? (
+                <button 
+                  onClick={startRecording}
+                  className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl flex items-center gap-2"
+                >
+                  <Mic className="w-5 h-5" /> Bắt đầu thu âm
+                </button>
+              ) : (
+                <button 
+                  onClick={stopRecording}
+                  className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl flex items-center gap-2"
+                >
+                  <Square className="w-5 h-5" /> Dừng thu âm
+                </button>
+              )}
+            </div>
+          </div>
+
+          {(transcript || finalScore) && (
+            <div className="space-y-4">
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700 min-h-24">
+                <p className="text-slate-300">
+                  <span className="font-semibold text-sky-400">Bạn vừa nói: </span>
+                  {transcript || '...'}
+                </p>
+              </div>
+
+              {!isRecording && transcript && !finalScore && (
+                <button
+                  onClick={evaluateSpeaking}
+                  disabled={evaluating}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex justify-center items-center gap-2"
+                >
+                  {evaluating ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Chấm điểm'}
+                </button>
+              )}
+
+              {finalScore && (
+                <div className="p-6 bg-emerald-950/30 border border-emerald-900/50 rounded-2xl space-y-4 animate-in fade-in">
+                  <h4 className="text-xl font-bold text-emerald-400">Đánh giá của AI</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-800 text-center">
+                      <div className="text-slate-400 text-sm">Lưu loát</div>
+                      <div className="text-3xl font-bold text-white">{finalScore.fluency}/10</div>
+                    </div>
+                    <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-800 text-center">
+                      <div className="text-slate-400 text-sm">Phát âm & Chính xác</div>
+                      <div className="text-3xl font-bold text-white">{finalScore.accuracy}/10</div>
+                    </div>
+                  </div>
+                  <p className="text-slate-300 mt-4 leading-relaxed bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                    {finalScore.feedback}
+                  </p>
+                  
+                  <button
+                    onClick={() => setScenario(null)}
+                    className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-all"
+                  >
+                    Tạo tình huống khác
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }

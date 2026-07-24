@@ -11,6 +11,8 @@ OpenQuiz AI is an open-source, modern vocabulary learning platform built with **
 *   **🔐 Authentication & Database**: Built securely with Supabase Auth, Row Level Security (RLS) policies, and a PostgreSQL database.
 *   **🔥 Streak System**: Keep up the momentum with an automated daily learning streak tracker.
 *   **🎓 Dynamic Ecosystem**: Complete learning tools covering Roleplay conversations, Grammar practice, Reading comprehension, Dictation, and Quizzes with AI integrations tailored to your current Band level.
+*   **⚙️ Advanced Config Panels**: Total control over your learning sessions. Pick specific words, set question counts, and adjust passage/audio lengths before generating modules.
+*   **🎭 Speaking Roleplay & Waveform**: Uses native `webkitSpeechRecognition` for free speech-to-text and `Canvas` + `AudioContext` for real-time waveform visualization.
 
 ## 🛠️ Tech Stack
 

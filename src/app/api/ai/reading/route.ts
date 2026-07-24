@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
-    const { words, targetBand } = await req.json()
+    const { words, targetBand, questionCount = 5, articleLength = 'medium' } = await req.json()
 
     if (!words || words.length === 0) {
       return NextResponse.json({ error: 'Missing words' }, { status: 400 })
@@ -31,12 +31,16 @@ export async function POST(req: Request) {
         difficultyInstruction = '\nDIFFICULTY LEVEL (A2-B1): Write simple compound sentences.'
     }
 
+    let lengthInstruction = '150-250 words'
+    if (articleLength === 'short') lengthInstruction = '100-150 words'
+    else if (articleLength === 'long') lengthInstruction = '350-400 words'
+
     const systemPrompt = `You are an expert English teacher.
 The user wants to practice reading comprehension based on a specific set of vocabulary words.
 Words to include: ${words.join(', ')}
 
-Please write a short, engaging article (150-250 words) that naturally includes all of these words.
-Then, create 3 multiple choice reading comprehension questions based on the article.
+Please write a short, engaging article (${lengthInstruction}) that naturally includes all of these words.
+Then, create ${questionCount} multiple choice reading comprehension questions based on the article.
 ${difficultyInstruction}
 
 You MUST respond in strict JSON format exactly like this:

@@ -9,6 +9,7 @@ import { Headphones, Loader2, Play, Volume2, FastForward, CheckCircle2, RotateCc
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
 import MultiSetSelector from '@/components/MultiSetSelector'
+import WordSelector from '@/components/WordSelector'
 import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 
 import { useVocab } from '@/contexts/VocabContext'
@@ -17,9 +18,14 @@ export default function DictationPage() {
   const { vocabSets: sets, isLoading: contextLoading } = useVocab()
   const [selectedSets, setSelectedSets] = useState<string[]>([])
   const [items, setItems] = useState<VocabItem[]>([])
+  const [fetchedItems, setFetchedItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   
+  const [selectedWords, setSelectedWords] = useState<string[]>([])
+  const [questionCount, setQuestionCount] = useState(5)
+  const [durationLimit, setDurationLimit] = useState(60)
+
   const [currentIndex, setCurrentIndex] = useState(0)
   const [input, setInput] = useState('')
   const [checked, setChecked] = useState(false)
@@ -66,6 +72,10 @@ export default function DictationPage() {
       setPendingSession(null)
       setItems([]) // Wait for explicit start
     }
+    const fetched = await fetchVocabItemsBySets(setIds)
+    setItems([]) 
+    setFetchedItems(fetched)
+    if (fetched.length > 0) setSelectedWords(fetched.map(i => i.id))
     setIsLoadingSession(false)
   }
 
@@ -75,23 +85,24 @@ export default function DictationPage() {
     setLoadingAi(true)
     setErrorMsg('')
     setItems([])
-    const fetched = await fetchVocabItemsBySets(setIds)
-    if (fetched.length === 0) {
-      setErrorMsg('Bộ từ vựng trống. Hãy thêm từ vựng để tạo bài kiểm tra nhé!')
+    const targetItems = fetchedItems.filter(i => selectedWords.includes(i.id))
+
+    if (targetItems.length === 0) {
+      setErrorMsg('Bạn chưa chọn từ vựng nào!')
       setItems([])
       setLoading(false)
       setLoadingAi(false)
       return
     }
 
-    const shuffled = shuffleArray(fetched).slice(0, 10)
+    const shuffled = shuffleArray(targetItems).slice(0, 15)
     const words = shuffled.map(i => i.term)
 
     try {
       const res = await fetch('/api/ai/dictation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words, targetBand })
+        body: JSON.stringify({ words, targetBand, questionCount, durationLimit })
       })
       const data = await res.json()
       if (res.ok && data.success && data.sentences) {
@@ -258,6 +269,49 @@ export default function DictationPage() {
         <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
           <XCircle className="w-5 h-5 shrink-0" />
           <p className="text-sm font-medium">{errorMsg}</p>
+        </div>
+      )}
+
+      {!loading && !loadingAi && !pendingSession && items.length === 0 && (
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
+          <h3 className="font-bold text-white text-lg border-b border-slate-800 pb-2">Cấu hình luyện nghe</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Số lượng câu ({questionCount})</label>
+                <input 
+                  type="range" 
+                  min="3" max="15" 
+                  value={questionCount} 
+                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  className="w-full accent-amber-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Độ dài câu (tối đa: {durationLimit}s)</label>
+                <input 
+                  type="range" 
+                  min="10" max="120" step="10"
+                  value={durationLimit} 
+                  onChange={(e) => setDurationLimit(Number(e.target.value))}
+                  className="w-full accent-amber-500"
+                />
+                <div className="mt-2 text-xs text-slate-500 italic">
+                  Chỉnh giới hạn thời lượng hoặc độ phức tạp của câu văn AI sinh ra.
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <WordSelector 
+                items={fetchedItems} 
+                selectedIds={selectedWords} 
+                onChange={setSelectedWords} 
+              />
+            </div>
+          </div>
         </div>
       )}
 

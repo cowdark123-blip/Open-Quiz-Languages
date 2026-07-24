@@ -7,6 +7,7 @@ import { shuffleArray } from '@/lib/random'
 import { Trophy, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 import MultiSetSelector from '@/components/MultiSetSelector'
+import WordSelector from '@/components/WordSelector'
 import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 
 type QuizQuestion = {
@@ -20,7 +21,11 @@ export default function QuizPage() {
   const { vocabSets: sets, isLoading: contextLoading } = useVocab()
   const [selectedSets, setSelectedSets] = useState<string[]>([])
   const [vocabItems, setVocabItems] = useState<VocabItem[]>([])
+  const [fetchedItems, setFetchedItems] = useState<VocabItem[]>([])
   const [loading, setLoading] = useState(false)
+  
+  const [selectedWords, setSelectedWords] = useState<string[]>([])
+  const [questionCount, setQuestionCount] = useState(10)
   
   const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -50,6 +55,9 @@ export default function QuizPage() {
       } else {
         setPendingSession(null)
       }
+      const fetched = await fetchVocabItemsBySets(selectedSets)
+      setFetchedItems(fetched)
+      if (fetched.length > 0) setSelectedWords(fetched.map(i => i.id))
       setIsLoadingSession(false)
     }
     loadSession()
@@ -66,18 +74,18 @@ export default function QuizPage() {
     setCurrentIndex(0)
     setScore(0)
 
-    const items = await fetchVocabItemsBySets(selectedSets)
+    const items = fetchedItems.filter(i => selectedWords.includes(i.id))
     setVocabItems(items)
 
     if (items.length < 4) {
-      setErrorMsg('Bộ từ vựng hiện tại chưa đủ từ. Hãy thêm ít nhất 4 từ để tạo bài kiểm tra nhé!')
+      setErrorMsg('Bộ từ vựng hiện tại chưa đủ từ. Hãy chọn ít nhất 4 từ để tạo bài kiểm tra nhé!')
       setLoading(false)
       return
     }
     setErrorMsg('')
 
-    // Generate up to 10 questions
-    const shuffledItems = shuffleArray(items).slice(0, 10)
+    // Generate up to questionCount questions
+    const shuffledItems = shuffleArray(items).slice(0, questionCount)
     
     const generatedQuestions = shuffledItems.map(targetItem => {
       const wrongOptions = shuffleArray(items.filter(i => i.id !== targetItem.id))
@@ -221,6 +229,35 @@ export default function QuizPage() {
         <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
           <XCircle className="w-5 h-5 shrink-0" />
           <p className="text-sm font-medium">{errorMsg}</p>
+        </div>
+      )}
+
+      {!pendingSession && questions.length === 0 && !isFinished && fetchedItems.length > 0 && (
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
+          <h3 className="font-bold text-white text-lg border-b border-slate-800 pb-2">Cấu hình bài kiểm tra</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Số lượng câu hỏi ({questionCount})</label>
+                <input 
+                  type="range" 
+                  min="3" max="30" 
+                  value={questionCount} 
+                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  className="w-full accent-rose-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <WordSelector 
+                items={fetchedItems} 
+                selectedIds={selectedWords} 
+                onChange={setSelectedWords} 
+              />
+            </div>
+          </div>
         </div>
       )}
 

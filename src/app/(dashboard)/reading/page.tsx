@@ -8,6 +8,7 @@ import { BookText, Loader2, Play, CheckCircle2, XCircle } from 'lucide-react'
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
 import MultiSetSelector from '@/components/MultiSetSelector'
+import WordSelector from '@/components/WordSelector'
 import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 
 import { useVocab } from '@/contexts/VocabContext'
@@ -21,6 +22,10 @@ export default function ReadingPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [targetBand, setTargetBand] = useState('co_ban')
   
+  const [selectedWords, setSelectedWords] = useState<string[]>([])
+  const [questionCount, setQuestionCount] = useState(5)
+  const [articleLength, setArticleLength] = useState('medium')
+
   const [article, setArticle] = useState<string>('')
   const [questions, setQuestions] = useState<any[]>([])
   const [answers, setAnswers] = useState<Record<number, string>>({})
@@ -57,6 +62,7 @@ export default function ReadingPage() {
       }
       const items = await fetchVocabItemsBySets(selectedSets)
       setVocabItems(items)
+      if (items.length > 0) setSelectedWords(items.map(i => i.id))
       setIsLoadingSession(false)
     }
     loadSession()
@@ -82,12 +88,20 @@ export default function ReadingPage() {
       }
 
       setVocabItems(items)
-      const words = shuffleArray(items).map(item => item.term).slice(0, 10)
+      
+      const targetItems = items.filter(i => selectedWords.includes(i.id))
+      if (targetItems.length === 0) {
+        setErrorMsg('Bạn chưa chọn từ vựng nào!')
+        setGenerating(false)
+        return
+      }
+
+      const words = shuffleArray(targetItems).map(item => item.term).slice(0, 15)
 
       const res = await fetch('/api/ai/reading', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words, targetBand })
+        body: JSON.stringify({ words, targetBand, questionCount, articleLength })
       })
 
       if (res.ok) {
@@ -205,6 +219,55 @@ export default function ReadingPage() {
         <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
           <XCircle className="w-5 h-5 shrink-0" />
           <p className="text-sm font-medium">{errorMsg}</p>
+        </div>
+      )}
+
+      {!pendingSession && !article && !loading && !generating && vocabItems.length > 0 && (
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
+          <h3 className="font-bold text-white text-lg border-b border-slate-800 pb-2">Cấu hình bài đọc</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Số lượng câu hỏi trắc nghiệm ({questionCount})</label>
+                <input 
+                  type="range" 
+                  min="3" max="10" 
+                  value={questionCount} 
+                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  className="w-full accent-cyan-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Độ dài bài đọc</label>
+                <div className="flex bg-slate-900/50 rounded-lg border border-slate-700 p-1">
+                  {['short', 'medium', 'long'].map(len => (
+                    <button
+                      key={len}
+                      onClick={() => setArticleLength(len)}
+                      className={`flex-1 py-1.5 text-sm rounded-md capitalize font-medium transition-colors ${articleLength === len ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      {len === 'short' ? 'Ngắn' : len === 'medium' ? 'Vừa' : 'Dài'}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-slate-500 italic">
+                  {articleLength === 'short' && 'Khoảng 100-150 từ. Ví dụ: Lorem ipsum dolor sit amet...'}
+                  {articleLength === 'medium' && 'Khoảng 200-250 từ. Ví dụ: Lorem ipsum dolor sit amet, consectetur adipiscing elit...'}
+                  {articleLength === 'long' && 'Khoảng 350-400 từ. Rất chi tiết và yêu cầu đọc kỹ.'}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <WordSelector 
+                items={vocabItems} 
+                selectedIds={selectedWords} 
+                onChange={setSelectedWords} 
+              />
+            </div>
+          </div>
         </div>
       )}
 
