@@ -13,9 +13,11 @@ import { VocabSet } from '@/types/database'
 import { Flame, Brain, BookOpen, Mic, Sparkles, CheckCircle2, Clock, Play, Plus, Loader2, MessageSquare, PenTool, BookText, Headphones, Trophy } from 'lucide-react'
 import SRSForecastChart from '@/components/SRSForecastChart'
 
+import { useVocab } from '@/contexts/VocabContext'
+
 export default function DashboardPage() {
-  const [sets, setSets] = useState<VocabSet[]>([])
-  const [loading, setLoading] = useState(true)
+  const { vocabSets: sets, isLoading: contextLoading } = useVocab()
+  const [loadingProfile, setLoadingProfile] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [userProfile, setUserProfile] = useState<{
     displayName: string
@@ -27,9 +29,8 @@ export default function DashboardPage() {
   // We can remove dueSrsCount from the main page state since the widget will handle it.
 
   const loadDashboardData = async () => {
-    setLoading(true)
+    setLoadingProfile(true)
     const { user, profile } = await getCurrentUserProfile()
-    const userId = user?.id
 
     if (user) {
       // Recalculate streak
@@ -40,10 +41,7 @@ export default function DashboardPage() {
       })
     }
 
-    const userSets = await fetchUserVocabSets(userId)
-    setSets(userSets)
-
-    setLoading(false)
+    setLoadingProfile(false)
   }
 
   useEffect(() => {
@@ -152,7 +150,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {loading ? (
+      {contextLoading ? (
         <div className="py-16 text-center text-slate-400 flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
           <span className="text-xs">Đang tải dữ liệu từ vựng thực tế...</span>

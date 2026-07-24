@@ -14,10 +14,11 @@ import {
 import { VocabSet, VocabItem } from '@/types/database'
 import { Plus, BookOpen, Trash2, Edit2, Search, FolderPlus, ArrowRight, X, Loader2, Sparkles, FileInput } from 'lucide-react'
 import BulkImportModal from '@/components/BulkImportModal'
+import { useVocab } from '@/contexts/VocabContext'
 
 function SetsPageContent() {
-  const [sets, setSets] = useState<VocabSet[]>([])
-  const [loading, setLoading] = useState(true)
+  const { vocabSets: sets, isLoading: contextLoading, refreshVocab } = useVocab()
+  const [loading, setLoading] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
@@ -54,15 +55,10 @@ function SetsPageContent() {
   }
 
   const loadData = async () => {
-    setLoading(true)
-    const data = await fetchVocabSets()
-    setSets(data)
-    setLoading(false)
+    await refreshVocab()
   }
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  // We don't need to fetch on mount, VocabContext handles it.
 
   useEffect(() => {
     if (searchParams.get('create') === 'true') {
@@ -83,17 +79,13 @@ function SetsPageContent() {
     setCreating(true)
 
     if (editingSet) {
-      const updated = await apiUpdateVocabSet(editingSet.id, {
+      await apiUpdateVocabSet(editingSet.id, {
         title: newTitle,
         description: newDesc,
         category: newCategory,
         target_language: newLang,
       })
-      if (updated) {
-        setSets(sets.map((s) => (s.id === editingSet.id ? { ...s, title: newTitle, description: newDesc, category: newCategory, target_language: newLang } : s)))
-      } else {
-        await loadData()
-      }
+      await refreshVocab()
     } else {
       const created = await insertVocabSet({
         title: newTitle,
@@ -107,12 +99,9 @@ function SetsPageContent() {
         if (pendingBulkItems.length > 0) {
           const itemsWithSet = pendingBulkItems.map((item) => ({ ...item, set_id: created.id }))
           await insertVocabItemsBatch(itemsWithSet)
-          created.item_count = pendingBulkItems.length
         }
-        setSets([{ ...created }, ...sets])
-      } else {
-        await loadData()
       }
+      await refreshVocab()
     }
 
     setNewTitle('')
@@ -123,8 +112,8 @@ function SetsPageContent() {
   }
 
   const handleDeleteSet = async (id: string) => {
-    setSets(sets.filter((s) => s.id !== id))
     await apiDeleteVocabSet(id)
+    await refreshVocab()
   }
 
   const filteredSets = sets.filter((set) => {
@@ -203,7 +192,7 @@ function SetsPageContent() {
         </div>
       </div>
 
-      {loading ? (
+      {contextLoading ? (
         <div className="py-16 text-center text-slate-400 flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
           <span className="text-xs">Đang tải danh sách bộ từ vựng...</span>
