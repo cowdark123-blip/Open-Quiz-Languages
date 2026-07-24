@@ -138,6 +138,7 @@ export default function GrammarPage() {
     return () => {
       if (!isSavedRef.current && practiceQuestions.length > 0 && !submitted) {
         // Cleanup if unmounted unexpectedly
+        deleteActiveSession('grammar', 'default')
       }
     }
   }, [practiceQuestions, submitted, selectedTopic])

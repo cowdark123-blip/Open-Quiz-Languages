@@ -45,9 +45,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, data })
     } catch (parseError) {
       // Fallback if not perfectly JSON
-      const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1)
-      const data = JSON.parse(jsonStr)
-      return NextResponse.json({ success: true, data })
+      const start = text.indexOf('{')
+      const end = text.lastIndexOf('}')
+      if (start !== -1 && end !== -1 && end > start) {
+        const jsonStr = text.substring(start, end + 1)
+        const data = JSON.parse(jsonStr)
+        return NextResponse.json({ success: true, data })
+      } else {
+        throw new Error('Gemini returned unparseable text: ' + text)
+      }
     }
   } catch (error: any) {
     console.error('Dictionary API Error:', error)

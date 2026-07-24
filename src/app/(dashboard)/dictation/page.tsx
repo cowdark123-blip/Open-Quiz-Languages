@@ -194,7 +194,7 @@ export default function DictationPage() {
   useEffect(() => {
     return () => {
       if (!isSavedRef.current && items.length > 0 && currentIndex < items.length) {
-        // Cleanup if needed
+        deleteActiveSession('dictation', selectedSet)
       }
     }
   }, [items, currentIndex, selectedSet])

@@ -578,40 +578,13 @@ export async function deleteConversationHistory(scenario: string): Promise<boole
 
 // ACTIVE SESSIONS
 export async function saveActiveSession(moduleType: string, resourceId: string, sessionData: any): Promise<boolean> {
-  const supabase = createClient()
+  if (typeof window === 'undefined') return false
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return false
-
-    const payload = {
-      user_id: user.id,
-      module_type: moduleType,
-      resource_id: resourceId,
+    const key = `active_session_${moduleType}_${resourceId}`
+    window.localStorage.setItem(key, JSON.stringify({
       session_data: sessionData,
       updated_at: new Date().toISOString()
-    }
-
-    const { data: existing } = await supabase
-      .from('active_learning_sessions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('module_type', moduleType)
-      .eq('resource_id', resourceId)
-      .single()
-
-    let error;
-    if (existing) {
-      const { error: updateErr } = await supabase.from('active_learning_sessions').update(payload).eq('id', existing.id)
-      error = updateErr
-    } else {
-      const { error: insertErr } = await supabase.from('active_learning_sessions').insert([payload])
-      error = insertErr
-    }
-
-    if (error) {
-      console.error('saveActiveSession error:', error)
-      return false
-    }
+    }))
     return true
   } catch (err) {
     console.error('saveActiveSession exception:', err)
@@ -620,36 +593,24 @@ export async function saveActiveSession(moduleType: string, resourceId: string, 
 }
 
 export async function loadActiveSession(moduleType: string, resourceId: string): Promise<any> {
-  const supabase = createClient()
+  if (typeof window === 'undefined') return null
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
-
-    const { data } = await supabase
-      .from('active_learning_sessions')
-      .select('session_data')
-      .eq('user_id', user.id)
-      .eq('module_type', moduleType)
-      .eq('resource_id', resourceId)
-      .single()
-
-    return data?.session_data || null
+    const key = `active_session_${moduleType}_${resourceId}`
+    const data = window.localStorage.getItem(key)
+    if (!data) return null
+    const parsed = JSON.parse(data)
+    return parsed.session_data || null
   } catch {
     return null
   }
 }
 
 export async function deleteActiveSession(moduleType: string, resourceId: string): Promise<boolean> {
-  const supabase = createClient()
+  if (typeof window === 'undefined') return false
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return false
-
-    const { error } = await supabase.from('active_learning_sessions').delete()
-      .eq('user_id', user.id)
-      .eq('module_type', moduleType)
-      .eq('resource_id', resourceId)
-    return !error
+    const key = `active_session_${moduleType}_${resourceId}`
+    window.localStorage.removeItem(key)
+    return true
   } catch {
     return false
   }

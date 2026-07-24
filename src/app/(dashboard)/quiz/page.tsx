@@ -156,7 +156,7 @@ export default function QuizPage() {
     return () => {
       if (!isSavedRef.current && questions.length > 0 && !isFinished) {
         // Cleanup if unmounted without saving explicitly
-        // deleteActiveSession('quiz', selectedSet).catch(console.error)
+        deleteActiveSession('quiz', selectedSet)
       }
     }
   }, [questions, isFinished, selectedSet])

@@ -133,6 +133,25 @@ export default function DictionaryPopover({ word, contextSentence, onClose }: Di
               <p className="text-xs text-slate-300 italic">"{data.exampleSentence}"</p>
             </div>
 
+            <div className="flex gap-2 pb-2 border-b border-slate-800/50">
+              <a 
+                href={`http://tratu.soha.vn/dict/en_vn/${data.term}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-blue-400 text-xs font-bold rounded-lg transition-colors text-center"
+              >
+                Tra trên Soha
+              </a>
+              <a 
+                href={`https://dictionary.cambridge.org/dictionary/english/${data.term}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-lg transition-colors text-center"
+              >
+                Tra trên Cambridge
+              </a>
+            </div>
+
             {isAlreadySaved ? (
               <div className="w-full py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-sm flex items-center justify-center gap-2">
                 <Check className="w-4 h-4" />

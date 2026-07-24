@@ -140,6 +140,7 @@ export default function ReadingPage() {
     return () => {
       if (!isSavedRef.current && article !== '' && !submitted) {
         // Cleanup if unmounted unexpectedly
+        deleteActiveSession('reading', selectedSet)
       }
     }
   }, [article, submitted, selectedSet])
