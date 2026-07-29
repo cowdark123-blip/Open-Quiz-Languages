@@ -16,7 +16,7 @@ import {
 } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { playTTS } from '@/lib/tts'
-import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2, FileInput, Star, Filter } from 'lucide-react'
+import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2, FileInput, Star, Filter, ChevronDown } from 'lucide-react'
 import BulkImportModal from '@/components/BulkImportModal'
 
 export default function SetDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -317,7 +317,6 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     const srs = item.srsProgress
     if (!srs) return 'Unlearned'
     if (srs.status === 'mastered' || srs.repetition >= 4) return 'Mastered'
-    if (srs.repetition > 0) return 'Learning'
     return 'Unlearned'
   }
 
@@ -325,30 +324,144 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     if (sortOption === 'starred') {
       if (a.is_starred && !b.is_starred) return -1
       if (!a.is_starred && b.is_starred) return 1
-    } else if (sortOption === 'unlearned') {
-      const order: Record<string, number> = { 'Unlearned': 0, 'Learning': 1, 'Mastered': 2 }
-      const aWeight = order[getLearningStatus(a)] ?? 3
-      const bWeight = order[getLearningStatus(b)] ?? 3
-      if (aWeight !== bWeight) return aWeight - bWeight
-    } else if (sortOption === 'learning') {
-      const order: Record<string, number> = { 'Learning': 0, 'Unlearned': 1, 'Mastered': 2 }
-      const aWeight = order[getLearningStatus(a)] ?? 3
-      const bWeight = order[getLearningStatus(b)] ?? 3
-      if (aWeight !== bWeight) return aWeight - bWeight
-    } else if (sortOption === 'mastered') {
-      const order: Record<string, number> = { 'Mastered': 0, 'Learning': 1, 'Unlearned': 2 }
-      const aWeight = order[getLearningStatus(a)] ?? 3
-      const bWeight = order[getLearningStatus(b)] ?? 3
-      if (aWeight !== bWeight) return aWeight - bWeight
     }
     return 0
   })
+
+  const masteredItems = sortedItems.filter(i => getLearningStatus(i) === 'Mastered')
+  const unlearnedItems = sortedItems.filter(i => getLearningStatus(i) === 'Unlearned')
 
   if (loading) {
     return (
       <div className="py-16 text-center text-slate-400 flex flex-col items-center gap-3">
         <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
         <span className="text-xs">Đang tải dữ liệu từ vựng từ Supabase...</span>
+      </div>
+    )
+  }
+
+  const renderItem = (item: VocabItem, idx: number) => {
+    const termLower = item.term.trim().toLowerCase()
+    const defLower = (item.definition || item.vietnamese_translation || '').trim().toLowerCase()
+
+    const isTermDup =
+      termLower !== '' &&
+      items.some((other) => other.id !== item.id && other.term.trim().toLowerCase() === termLower)
+    const isDefDup =
+      defLower !== '' &&
+      items.some(
+        (other) =>
+          other.id !== item.id &&
+          ((other.definition || '').trim().toLowerCase() === defLower ||
+            (other.vietnamese_translation && other.vietnamese_translation.trim().toLowerCase() === defLower))
+      )
+    const isDup = isTermDup || isDefDup
+
+    return (
+      <div
+        key={item.id}
+        className={`glass-card p-5 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all group ${
+          isDup
+            ? 'border-2 border-amber-500 bg-amber-500/10 shadow-md'
+            : 'border-slate-800/90 hover:border-purple-500/30'
+        }`}
+      >
+        {/* Left: content */}
+        <div className="flex items-start gap-4 flex-1 min-w-0">
+          <span className="w-7 h-7 rounded-lg bg-slate-900 text-slate-500 text-xs font-mono font-bold flex items-center justify-center shrink-0 border border-slate-800">
+            {idx + 1}
+          </span>
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => handleToggleStar(item)}
+                className={`p-1 rounded-lg transition-colors ${item.is_starred ? 'text-amber-400 hover:text-amber-300' : 'text-slate-500 hover:text-amber-400 hover:bg-slate-800'}`}
+                title={item.is_starred ? 'Bỏ yêu thích' : 'Đánh dấu yêu thích'}
+              >
+                <Star className={`w-5 h-5 ${item.is_starred ? 'fill-current' : ''}`} />
+              </button>
+              <h4 className="text-lg font-extrabold text-white tracking-wide truncate">{item.term}</h4>
+              {isTermDup && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  ⚠️ Trùng từ
+                </span>
+              )}
+              {isDefDup && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                  ⚠️ Trùng nghĩa
+                </span>
+              )}
+              {item.ipa && (
+                <span className="text-xs font-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                  {item.ipa}
+                </span>
+              )}
+              {(() => {
+                const status = getLearningStatus(item)
+                if (status === 'Mastered') {
+                  return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 Đã thuộc</span>
+                } else {
+                  return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">🔴 Chưa học</span>
+                }
+              })()}
+              <button
+                onClick={() => playAudio(item.term)}
+                className="p-1 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-colors"
+                title="Nghe phát âm chuẩn"
+              >
+                <Volume2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-300 font-medium">{item.definition}</p>
+
+            {item.vietnamese_translation && (
+              <p className="text-xs text-purple-300 italic">
+                <strong>Nghĩa Việt:</strong> {item.vietnamese_translation}
+              </p>
+            )}
+
+            {item.example_sentence && (
+              <p className="text-xs text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 mt-2">
+                &quot;{item.example_sentence}&quot;
+              </p>
+            )}
+
+            {item.synonyms && item.synonyms.length > 0 && (
+              <div className="flex items-center gap-1.5 pt-1 text-[11px] text-slate-400 flex-wrap">
+                <span className="font-semibold text-slate-500">Đồng nghĩa:</span>
+                {item.synonyms.map((s, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: action buttons */}
+        <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+          <button
+            onClick={() => handleOpenEditModal(item)}
+            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors touch-manipulation"
+            title="Sửa từ vựng"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              if (window.confirm('Xóa từ vựng này?')) {
+                handleDeleteItem(item.id) 
+              }
+            }}
+            className="p-2.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors touch-manipulation"
+            title="Xóa từ vựng"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     )
   }
@@ -428,9 +541,6 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
             >
               <option value="original">Mặc định (Original)</option>
               <option value="starred">Ưu tiên sao (Starred First)</option>
-              <option value="unlearned">Ưu tiên chưa học (Unlearned First)</option>
-              <option value="learning">Ưu tiên đang học (Learning First)</option>
-              <option value="mastered">Ưu tiên đã thành thạo (Mastered First)</option>
             </select>
           </div>
         </div>
@@ -452,135 +562,41 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
         </div>
       </div>
 
-      {/* Vocab Items Grid */}
-      <div className="space-y-4">
-        {sortedItems.map((item, idx) => {
-          const termLower = item.term.trim().toLowerCase()
-          const defLower = (item.definition || item.vietnamese_translation || '').trim().toLowerCase()
-
-          const isTermDup =
-            termLower !== '' &&
-            items.some((other) => other.id !== item.id && other.term.trim().toLowerCase() === termLower)
-          const isDefDup =
-            defLower !== '' &&
-            items.some(
-              (other) =>
-                other.id !== item.id &&
-                ((other.definition || '').trim().toLowerCase() === defLower ||
-                  (other.vietnamese_translation && other.vietnamese_translation.trim().toLowerCase() === defLower))
-            )
-          const isDup = isTermDup || isDefDup
-
-          return (
-            <div
-              key={item.id}
-              className={`glass-card p-5 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all group ${
-                isDup
-                  ? 'border-2 border-amber-500 bg-amber-500/10 shadow-md'
-                  : 'border-slate-800/90 hover:border-purple-500/30'
-              }`}
-            >
-              {/* Left: content */}
-              <div className="flex items-start gap-4 flex-1 min-w-0">
-                <span className="w-7 h-7 rounded-lg bg-slate-900 text-slate-500 text-xs font-mono font-bold flex items-center justify-center shrink-0 border border-slate-800">
-                  {idx + 1}
-                </span>
-                <div className="space-y-1 min-w-0 flex-1">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <button
-                      onClick={() => handleToggleStar(item)}
-                      className={`p-1 rounded-lg transition-colors ${item.is_starred ? 'text-amber-400 hover:text-amber-300' : 'text-slate-500 hover:text-amber-400 hover:bg-slate-800'}`}
-                      title={item.is_starred ? 'Bỏ yêu thích' : 'Đánh dấu yêu thích'}
-                    >
-                      <Star className={`w-5 h-5 ${item.is_starred ? 'fill-current' : ''}`} />
-                    </button>
-                    <h4 className="text-lg font-extrabold text-white tracking-wide truncate">{item.term}</h4>
-                    {isTermDup && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        ⚠️ Trùng từ
-                      </span>
-                    )}
-                    {isDefDup && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30">
-                        ⚠️ Trùng nghĩa
-                      </span>
-                    )}
-                    {item.ipa && (
-                      <span className="text-xs font-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                        {item.ipa}
-                      </span>
-                    )}
-                    {(() => {
-                      const status = getLearningStatus(item)
-                      if (status === 'Mastered') {
-                        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 Đã thuộc</span>
-                      } else if (status === 'Learning') {
-                        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">🟡 Đang học (Lần {item.srsProgress?.repetition})</span>
-                      } else {
-                        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">🔴 Chưa học</span>
-                      }
-                    })()}
-                    <button
-                      onClick={() => playAudio(item.term)}
-                      className="p-1 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-colors"
-                      title="Nghe phát âm chuẩn"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <p className="text-sm text-slate-300 font-medium">{item.definition}</p>
-
-                  {item.vietnamese_translation && (
-                    <p className="text-xs text-purple-300 italic">
-                      <strong>Nghĩa Việt:</strong> {item.vietnamese_translation}
-                    </p>
-                  )}
-
-                  {item.example_sentence && (
-                    <p className="text-xs text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 mt-2">
-                      &quot;{item.example_sentence}&quot;
-                    </p>
-                  )}
-
-                  {item.synonyms && item.synonyms.length > 0 && (
-                    <div className="flex items-center gap-1.5 pt-1 text-[11px] text-slate-400 flex-wrap">
-                      <span className="font-semibold text-slate-500">Đồng nghĩa:</span>
-                      {item.synonyms.map((s, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right: action buttons — always visible on mobile */}
-              <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                <button
-                  onClick={() => handleOpenEditModal(item)}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors touch-manipulation"
-                  title="Sửa từ vựng"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    if (window.confirm('Xóa từ vựng này?')) {
-                      handleDeleteItem(item.id) 
-                    }
-                  }}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors touch-manipulation"
-                  title="Xóa từ vựng"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+            {/* Vocab Items Grid */}
+      <div className="space-y-6">
+        <details className="group" open>
+          <summary className="flex items-center justify-between cursor-pointer list-none p-4 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+              <h4 className="text-sm font-bold text-slate-300">Chưa học ({unlearnedItems.length})</h4>
             </div>
-          )
-        })}
+            <ChevronDown className="w-5 h-5 text-slate-500 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-4 space-y-4 pl-2">
+            {unlearnedItems.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">Không có từ nào.</p>
+            ) : (
+              unlearnedItems.map((item, idx) => renderItem(item, idx))
+            )}
+          </div>
+        </details>
+
+        <details className="group" open>
+          <summary className="flex items-center justify-between cursor-pointer list-none p-4 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+              <h4 className="text-sm font-bold text-emerald-400">Đã thành thạo ({masteredItems.length})</h4>
+            </div>
+            <ChevronDown className="w-5 h-5 text-slate-500 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-4 space-y-4 pl-2">
+            {masteredItems.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">Chưa có từ nào.</p>
+            ) : (
+              masteredItems.map((item, idx) => renderItem(item, idx))
+            )}
+          </div>
+        </details>
       </div>
 
       {/* Modal: Add/Edit Vocab Item with AI Auto-Fill */}

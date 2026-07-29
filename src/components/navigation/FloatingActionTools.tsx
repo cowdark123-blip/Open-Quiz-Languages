@@ -22,7 +22,6 @@ function FloatingActionToolsContent() {
   const [isDictOpen, setIsDictOpen] = useState(false)
   const [isTrashOpen, setIsTrashOpen] = useState(false)
   const [srsPreselect, setSrsPreselect] = useState<string | null>(null)
-  const [streak, setStreak] = useState(1)
 
   // Listen to URL query params for opening SRS
   useEffect(() => {
@@ -39,21 +38,6 @@ function FloatingActionToolsContent() {
     }
   }, [searchParams, router])
 
-  useEffect(() => {
-    async function loadStreak() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('streak_count')
-          .eq('id', user.id)
-          .single()
-        if (profile) setStreak(profile.streak_count || 1)
-      }
-    }
-    loadStreak()
-  }, [])
 
   const tools = [
     {
@@ -87,16 +71,6 @@ function FloatingActionToolsContent() {
       color: 'text-red-400',
       bg: 'bg-red-500/10',
       action: () => setIsTrashOpen(true)
-    },
-    {
-      id: 'streak',
-      icon: Flame,
-      label: `${streak} Ngày`,
-      color: 'text-orange-400',
-      bg: 'bg-orange-500/10',
-      action: () => {
-        // Just visual for now or can open a Streak modal
-      }
     }
   ]
 

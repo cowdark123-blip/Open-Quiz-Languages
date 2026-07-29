@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
+import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { shuffleArray } from '@/lib/random'
 import { BookText, Loader2, Play, CheckCircle2, XCircle } from 'lucide-react'
@@ -365,8 +365,6 @@ export default function ReadingPage() {
                     setSubmitted(true)
                     const resourceId = selectedSets.slice().sort().join(',')
                     await deleteActiveSession('reading', resourceId)
-                    await checkAndUpdateStreak()
-                    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
                   }}
                   disabled={Object.keys(answers).length < questions.length}
                   className="mt-8 w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold disabled:opacity-50 transition-all"

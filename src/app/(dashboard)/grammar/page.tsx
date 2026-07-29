@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { PenTool, CheckCircle2, XCircle, Loader2, Play, Sparkles } from 'lucide-react'
-import { getCurrentUserProfile, saveActiveSession, loadActiveSession, deleteActiveSession, checkAndUpdateStreak, fetchVocabItemsBySets } from '@/lib/supabase/data-service'
+import { getCurrentUserProfile, saveActiveSession, loadActiveSession, deleteActiveSession, fetchVocabItemsBySets } from '@/lib/supabase/data-service'
 import NavigationGuard from '@/components/NavigationGuard'
 import InteractiveText from '@/components/InteractiveText'
 import MultiSetSelector from '@/components/MultiSetSelector'
@@ -391,8 +391,6 @@ export default function GrammarPage() {
                     setSubmitted(true)
                     const resourceId = selectedSets.slice().sort().join(',')
                     await deleteActiveSession('grammar', resourceId)
-                    await checkAndUpdateStreak()
-                    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
                   }}
                   disabled={Object.keys(answers).length < practiceQuestions.length}
                   className="mt-8 w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-lg disabled:opacity-50 transition-all shadow-lg"

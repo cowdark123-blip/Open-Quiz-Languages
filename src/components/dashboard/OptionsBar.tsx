@@ -6,7 +6,6 @@ import { Palette, Bug, Bell, Search, Filter, Sparkles, SlidersHorizontal } from 
 import { BackgroundSwitcher } from './BackgroundSwitcher'
 import { BugReportModal } from './BugReportModal'
 import { SRSNotificationDrawer } from './SRSNotificationDrawer'
-import { StreakTracker } from './StreakTracker'
 import { fetchDueSRSItems } from '@/lib/supabase/data-service'
 
 interface OptionsBarProps {
@@ -49,8 +48,7 @@ export function OptionsBar({ searchQuery = '', onSearchChange }: OptionsBarProps
 
         {/* Options Toolbar Action Buttons */}
         <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-2.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-          {/* Streak Tracker Pill */}
-          <StreakTracker />
+
 
           {/* Background Switcher Trigger Button */}
           <motion.button

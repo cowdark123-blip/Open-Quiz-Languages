@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Mic, Send, Bot, User, Loader2, Sparkles, Volume2, RotateCcw } from 'lucide-react'
-import { getCurrentUserProfile, loadConversationHistory, saveConversationHistory, deleteConversationHistory, checkAndUpdateStreak } from '@/lib/supabase/data-service'
+import { getCurrentUserProfile, loadConversationHistory, saveConversationHistory, deleteConversationHistory } from '@/lib/supabase/data-service'
 import { playTTS } from '@/lib/tts'
 import InteractiveText from '@/components/InteractiveText'
 
@@ -224,8 +224,6 @@ export default function ConversationPage() {
 
         const userMsgCount = finalMessages.filter(m => m.role === 'user').length
         if (userMsgCount >= 2) {
-           await checkAndUpdateStreak()
-           if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
         }
 
         setIsPlaying(true)

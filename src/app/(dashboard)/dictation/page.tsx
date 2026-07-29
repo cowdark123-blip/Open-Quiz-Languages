@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession, checkAndUpdateStreak } from '@/lib/supabase/data-service'
+import { fetchUserVocabSets, fetchVocabItems, getCurrentUserProfile, loadActiveSession, saveActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
 import { VocabSet, VocabItem } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import { shuffleArray } from '@/lib/random'
@@ -172,11 +172,6 @@ export default function DictationPage() {
 
     setDiffResult(result)
     setChecked(true)
-
-    // Update streak
-    checkAndUpdateStreak().then(() => {
-      if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
-    })
   }
 
   const nextSentence = async () => {

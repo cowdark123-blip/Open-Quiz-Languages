@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { playTTS } from '@/lib/tts'
-import { Volume2, BookOpen, CheckCircle, Star } from 'lucide-react'
+import { Volume2, BookOpen, Star, X } from 'lucide-react'
 
 interface DictionaryProps {
   word: string
@@ -20,7 +20,6 @@ interface DictionaryProps {
 export function DictionaryBottomSheet({ word, ipa, definition, vietnamese_translation, example_sentence, is_starred, onStarToggle, isOpen, onClose }: DictionaryProps) {
   const [mounted, setMounted] = useState(false)
 
-  // Mount/unmount with animation
   useEffect(() => {
     if (isOpen) {
       setMounted(true)
@@ -33,84 +32,99 @@ export function DictionaryBottomSheet({ word, ipa, definition, vietnamese_transl
   if (!mounted && !isOpen) return null
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-end justify-center px-4 pb-8`}>
-      <motion.div
-        initial={{ y: '100%' }}
-        animate={isOpen ? { y: 0 } : { y: '100%' }}
-        exit={{ y: '100%' }}
-        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-        className={`w-full max-w-md bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/50 shadow-2xl rounded-t-3xl`}
-      >
-        <div className="p-6 space-y-4">
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-xl font-bold text-white">{word}</h3>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-hover text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-          <div className="space-y-4">
-            {ipa && (
-              <div className="flex items-center gap-2">
-                <Volume2 className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-mono text-purple-300 italic">{ipa}</span>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4 pb-0 sm:pb-8">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ y: '100%', opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: '100%', opacity: 0, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="relative w-full max-w-lg bg-slate-900 border border-slate-800 shadow-2xl rounded-t-[2rem] sm:rounded-3xl overflow-hidden"
+          >
+            {/* Header background glow */}
+            <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-purple-500/20 to-transparent pointer-events-none" />
+
+            {/* Drag Handle */}
+            <div className="w-full flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-12 h-1.5 rounded-full bg-slate-700/50" />
+            </div>
+
+            <div className="px-6 pb-6 pt-2 sm:pt-6 space-y-6 max-h-[85vh] overflow-y-auto custom-scrollbar">
+              
+              {/* Header */}
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex-1">
+                  <h3 className="text-3xl font-black text-white tracking-tight mb-2">{word}</h3>
+                  {ipa && (
+                    <button 
+                      onClick={() => playTTS(word)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-300 transition-colors group"
+                    >
+                      <Volume2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      <span className="text-sm font-mono tracking-wide">{ipa}</span>
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onStarToggle}
+                    className={`p-3 rounded-2xl transition-all ${
+                      is_starred
+                        ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                        : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                    }`}
+                  >
+                    <Star className={`w-6 h-6 ${is_starred ? 'fill-current' : ''}`} />
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="p-3 rounded-2xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
               </div>
-            )}
-            {definition && (
-              <div className="space-y-2">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Định nghĩa</span>
-                <p className="text-base font-bold text-white">{definition}</p>
+
+              {/* Content */}
+              <div className="space-y-4 pt-2">
+                {vietnamese_translation && (
+                  <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 space-y-2">
+                    <div className="flex items-center gap-2 text-purple-400">
+                      <BookOpen className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Nghĩa Tiếng Việt</span>
+                    </div>
+                    <p className="text-lg font-bold text-white">{vietnamese_translation}</p>
+                  </div>
+                )}
+
+                {definition && (
+                  <div className="p-4 rounded-2xl bg-slate-800/30 border border-slate-700/30 space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Định nghĩa (Anh - Anh)</span>
+                    <p className="text-base text-slate-300 leading-relaxed">{definition}</p>
+                  </div>
+                )}
+
+                {example_sentence && (
+                  <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Ví dụ</span>
+                    <p className="text-base text-indigo-200/90 italic leading-relaxed">
+                      &quot;{example_sentence}&quot;
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-            {vietnamese_translation && (
-              <div className="space-y-2">
-                <span className="text-[10px] uppercase font-bold text-purple-400">Dịch tiếng Việt</span>
-                <p className="text-sm font-semibold text-purple-200">{vietnamese_translation}</p>
-              </div>
-            )}
-            {example_sentence && (
-              <div className="space-y-2">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Ví dụ</span>
-                <p className="text-base font-semibold text-white mt-0.5">"{example_sentence}"</p>
-              </div>
-            )}
-          </div>
-          <div className="flex items-start justify-center mt-6">
-            <button
-              onClick={onStarToggle}
-              className={`w-32 py-2 rounded-xl font-medium transition-all ${
-                is_starred
-                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30'
-                  : 'bg-slate-800/20 text-slate-400 border-slate-700/30 hover:bg-slate-800/30'
-              }`}
-            >
-              {is_starred ? (
-                <>
-                  <Star className="w-5 h-5 text-amber-400 mr-2" />
-                  Đã gắn sao
-                </>
-              ) : (
-                <>
-                  <Star className="w-5 h-5 text-slate-400 mr-2" />
-                  Gắn sao
-                </>
-              )}
-            </button>
-          </div>
-          <div className="pt-4">
-            <button
-              onClick={onClose}
-              className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition-all shadow-lg shadow-purple-500/20"
-            >
-              Đóng
-            </button>
-          </div>
+            </div>
+          </motion.div>
         </div>
-      </motion.div>
-    </div>
+      )}
+    </AnimatePresence>
   )
 }

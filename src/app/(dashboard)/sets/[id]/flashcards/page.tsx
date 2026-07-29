@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { useSwipeable } from 'react-swipeable'
 import NavigationGuard from '@/components/NavigationGuard'
-import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem, checkAndUpdateStreak } from '@/lib/supabase/data-service'
+import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem } from '@/lib/supabase/data-service'
 import { VocabItem, VocabSet } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import * as React from 'react'
@@ -44,8 +44,8 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const cardRef = useRef<HTMLDivElement>(null)
 
   const swipeHandlers = useSwipeable({
-    onSwipedRight: () => handleNextCard(true),
-    onSwipedLeft: () => handleNextCard(false),
+    onSwipedRight: () => handleNavigate('next'),
+    onSwipedLeft: () => handleNavigate('prev'),
     touchEventOptions: { passive: false },
     trackMouse: false,
   })
@@ -117,15 +117,8 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     playTTS(text)
   }, [])
 
-  const handleNextCard = useCallback((known: boolean) => {
+  const handleMarkState = useCallback((known: boolean) => {
     if (!currentCard) return
-
-    // Trigger streak on first card interaction
-    if (currentIndex === 0) {
-      checkAndUpdateStreak(undefined, 'flashcard').then(() => {
-        window.dispatchEvent(new Event('streak-updated'))
-      }).catch(console.error)
-    }
 
     if (known) {
       setMasteredCount((prev) => prev + 1)
@@ -140,7 +133,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
           : c
       ))
 
-      // Fire and forget API call so it doesn't block UI transition, but track it to await on exit
+      // Fire and forget API call so it doesn't block UI
       const savePromise = saveSRSProgress({
         item_id: currentCard.id,
         repetition: 4,
@@ -163,16 +156,15 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
       setCards(prevCards => prevCards.map(c =>
         c.id === currentCard.id
-          ? { ...c, srsProgress: { ...c.srsProgress, repetition: Math.max(c.srsProgress?.repetition || 0, 1), interval: 1, status: 'learning' } as any }
+          ? { ...c, srsProgress: { ...c.srsProgress, repetition: 0, interval: 0, status: 'learning' } as any }
           : c
       ))
 
       const nextDate = new Date()
-      nextDate.setDate(nextDate.getDate() + 1)
       const savePromise = saveSRSProgress({
         item_id: currentCard.id,
-        repetition: Math.max(currentCard.srsProgress?.repetition || 0, 1),
-        interval: 1,
+        repetition: 0,
+        interval: 0,
         status: 'learning',
         next_review_date: nextDate.toISOString()
       }).catch(console.error)
@@ -183,17 +175,28 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       })
 
       updateWordMasteryStatus?.(currentCard.id, false).catch(console.error)
+      
+      setToast(`Tiếp tục học từ "${currentCard.term}" nhé!`)
+      setTimeout(() => setToast(''), 3000)
     }
+  }, [currentCard, updateWordMasteryStatus])
 
+  const handleNavigate = useCallback((direction: 'next' | 'prev') => {
     setIsFlipped(false)
 
-    if (currentIndex + 1 < cards.length) {
-      setCurrentIndex((prev) => prev + 1)
+    if (direction === 'next') {
+      if (currentIndex + 1 < cards.length) {
+        setCurrentIndex((prev) => prev + 1)
+      } else {
+        setIsCompleted(true)
+        deleteActiveSession('flashcards', setId)
+      }
     } else {
-      setIsCompleted(true)
-      deleteActiveSession('flashcards', setId)
+      if (currentIndex > 0) {
+        setCurrentIndex((prev) => prev - 1)
+      }
     }
-  }, [currentIndex, cards.length, currentCard, setId, updateWordMasteryStatus])
+  }, [currentIndex, cards.length, setId])
 
   const handleRestart = async () => {
     setLoading(true)
@@ -252,10 +255,10 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         setIsFlipped((prev) => !prev)
       } else if (e.key === 'ArrowLeft' || e.key === '1') {
         e.preventDefault()
-        handleNextCard(false)
+        handleNavigate('prev')
       } else if (e.key === 'ArrowRight' || e.key === '2') {
         e.preventDefault()
-        handleNextCard(true)
+        handleNavigate('next')
       } else if (e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 's' || e.key.toLowerCase() === 'p') {
         e.preventDefault()
         if (currentCard) {
@@ -266,7 +269,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isCompleted, loading, handleNextCard, currentCard, playAudio])
+  }, [isCompleted, loading, (() => handleNavigate('next')), currentCard, playAudio])
 
   if (loading || isLoadingSession) {
     return (
@@ -623,19 +626,39 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
           {/* Action Feedback Controls - Mobile Optimized */}
           <div className="flex items-center justify-center gap-3 max-w-xl mx-auto">
             <button
-              onClick={() => handleNextCard(false)}
-              className="flex-1 py-3.5 px-4 md:px-6 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/5 active:scale-95 min-h-[56px] touch-manipulation"
+              onClick={() => handleMarkState(false)}
+              className="flex-1 py-3 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 font-bold text-sm transition-all flex items-center justify-center gap-2"
             >
               <XCircle className="w-5 h-5 text-red-400" />
-              <span>Cần Học Lại</span>
+              <span>Chưa thuộc</span>
             </button>
 
             <button
-              onClick={() => handleNextCard(true)}
-              className="flex-1 py-3.5 px-4 md:px-6 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 active:scale-95 min-h-[56px] touch-manipulation"
+              onClick={() => handleMarkState(true)}
+              className="flex-1 py-3 px-4 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 font-bold text-sm transition-all flex items-center justify-center gap-2"
             >
               <CheckCircle className="w-5 h-5 text-emerald-400" />
-              <span>Đã Thuộc</span>
+              <span>Đã thuộc</span>
+            </button>
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex items-center justify-between max-w-xl mx-auto mt-4">
+            <button
+              onClick={() => handleNavigate('prev')}
+              disabled={currentIndex === 0}
+              className="py-3 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-50 font-bold text-sm transition-all flex items-center gap-2"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              <span>Thẻ trước</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('next')}
+              className="py-3 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition-all flex items-center gap-2"
+            >
+              <span>Thẻ tiếp theo</span>
+              <ChevronRight className="w-5 h-5" />
             </button>
           </div>
 

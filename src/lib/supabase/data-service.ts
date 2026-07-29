@@ -35,74 +35,7 @@ export async function updateUserProfile(updates: Partial<Profile>): Promise<bool
   }
 }
 
-export async function checkAndUpdateStreak(userId?: string, activityType: string = 'general'): Promise<number> {
-  const supabase = createClient()
-  try {
-    let targetUserId = userId
-    if (!targetUserId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      targetUserId = user?.id
-    }
-    if (!targetUserId) return 0
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', targetUserId)
-      .single()
-
-    // Use local timezone (UTC+7) instead of UTC
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
-
-    let newStreak = 0
-    const lastActive = profile?.last_active_date
-
-    if (lastActive === todayStr) {
-      // Đã học hôm nay, giữ streak hiện tại
-      newStreak = profile?.streak_count || 0
-    } else if (lastActive === yesterdayStr) {
-      // Học hôm qua, tăng streak +1
-      newStreak = (profile?.streak_count || 0) + 1
-    } else if (!lastActive) {
-      // Lần đầu học
-      newStreak = 1
-    } else {
-      // Đứt streak, reset về 0
-      newStreak = 0
-    }
-
-    const bestStreak = Math.max(newStreak, profile?.best_streak || 0)
-
-    // Log activity vào activity_logs
-    await supabase.from('activity_logs').upsert({
-      user_id: targetUserId,
-      activity_date: todayStr,
-      activity_type: activityType,
-    }, {
-      onConflict: 'user_id,activity_date',
-    })
-
-    // Update profile
-    await supabase.from('profiles').upsert({
-      id: targetUserId,
-      streak_count: newStreak,
-      best_streak: bestStreak,
-      last_active_date: todayStr,
-    })
-
-    return newStreak
-  } catch (err) {
-    console.error('Update streak error:', err)
-    return 0
-  }
-}
-
-export const updateUserStreak = checkAndUpdateStreak
 
 export async function getActivityHistory(userId?: string, days: number = 28): Promise<string[]> {
   const supabase = createClient()
@@ -667,11 +600,6 @@ export async function saveSRSProgress(progress: Partial<UserSRSProgress>): Promi
       console.error('Supabase SRS Update/Insert Error:', err)
       throw new Error(err.message)
     }
-
-    // Update streak for active learning activity
-    await checkAndUpdateStreak(userId)
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
-
     return true
   } catch (err: any) {
     console.error('Save SRS Progress exception:', err)
@@ -692,11 +620,7 @@ export async function saveQuizResult(setId: string, score: number, total: number
       total_questions: total,
     }
 
-    const { error } = await supabase.from('quiz_results').insert([payload])
-    
-    // Update streak for active learning activity
-    await checkAndUpdateStreak(userId)
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
+    const { error } = await supabase.from('quiz_results').insert(payload)
 
     return !error
   } catch {
@@ -715,11 +639,7 @@ export async function saveSpeakingSession(session: Partial<SpeakingSession>): Pr
       user_id: userId,
     }
 
-    const { error } = await supabase.from('speaking_sessions').insert([payload])
-    
-    // Update streak for active speaking activity
-    await checkAndUpdateStreak(userId)
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('streak-updated'))
+    const { error } = await supabase.from('speaking_sessions').insert(payload)
 
     return !error
   } catch {
