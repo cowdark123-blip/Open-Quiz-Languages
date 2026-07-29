@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, BookOpen, Loader2, Filter } from 'lucide-react'
 import { useVocab } from '@/contexts/VocabContext'
+import { fetchAllUserSRSProgress } from '@/lib/supabase/data-service'
 import { WordSetCard } from './WordSetCard'
 import { CreateDeckModal } from './CreateDeckModal'
 
@@ -22,6 +23,23 @@ export function DecksGrid({
   const [categoryFilter, setCategoryFilter] = useState(selectedCategory)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'import'>('create')
+  const [srsProgressList, setSrsProgressList] = useState<any[]>([])
+
+  useEffect(() => {
+    async function loadSRS() {
+      try {
+        const progress = await fetchAllUserSRSProgress()
+        setSrsProgressList(progress)
+      } catch (e) {
+        console.error("Failed to load SRS progress", e)
+      }
+    }
+    loadSRS()
+    
+    // Also listen for updates so progress goes up when user finishes reviewing
+    window.addEventListener('srs_updated', loadSRS)
+    return () => window.removeEventListener('srs_updated', loadSRS)
+  }, [])
 
   const handleCategorySelect = (cat: string) => {
     setCategoryFilter(cat)
@@ -128,7 +146,8 @@ export function DecksGrid({
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
           {filteredSets.map((set) => {
-            const learnedCount = vocabItems.filter(i => i.set_id === set.id && i.is_mastered).length
+            const setItemIds = new Set(vocabItems.filter(i => i.set_id === set.id).map(i => i.id))
+            const learnedCount = srsProgressList.filter(p => setItemIds.has(p.item_id) && p.status === 'mastered').length
 
             return <WordSetCard key={set.id} set={set} learnedCount={learnedCount} />
           })}
