@@ -65,24 +65,24 @@ export function VocabProvider({ children }: { children: ReactNode }) {
 
     const CACHE_KEY = 'vocab_cache'
 
-    // Check cache first
+    // Check cache first for fast initial load
     if (!forceRefresh) {
       try {
         const cached = localStorage.getItem(CACHE_KEY)
         if (cached) {
           const parsed = JSON.parse(cached)
-          // If cache belongs to current user, use it
+          // If cache belongs to current user, use it immediately
           if (parsed.userId === userId && parsed.vocabSets && parsed.vocabItems) {
             setAllVocabSets(parsed.vocabSets)
             setVocabItems(parsed.vocabItems)
             setIsLoading(false)
-            return // Skip network request
+            // Do not return here! We must fetch from DB to get cross-device updates
           }
         }
       } catch (e) {}
     }
 
-    // Cache missed or forced refresh or different user, fetch from DB
+    // Fetch from DB to ensure fresh data (Stale-While-Revalidate)
     const [sets, items] = await Promise.all([
       fetchUserVocabSets(),
       fetchAllUserVocabItems()
@@ -126,9 +126,14 @@ export function VocabProvider({ children }: { children: ReactNode }) {
     })
     
     if (newItem) {
+      let nextSets = allVocabSets
+      setAllVocabSets(prev => {
+        nextSets = prev.map(s => s.id === setId ? { ...s, item_count: (s.item_count || 0) + 1 } : s)
+        return nextSets
+      })
       setVocabItems(prev => {
         const newItems = [...prev, newItem]
-        updateCache(allVocabSets, newItems)
+        updateCache(nextSets, newItems)
         return newItems
       })
       return true

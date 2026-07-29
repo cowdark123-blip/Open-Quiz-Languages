@@ -17,14 +17,12 @@ export default function DashboardLayout({
   const router = useRouter()
   const [userInfo, setUserInfo] = useState<{
     displayName: string
-    avatarUrl?: string | null
+    avatarUrl: string | null
     email?: string | null
-    streak: number
   }>({
     displayName: 'Học Viên OpenQuiz',
     avatarUrl: null,
     email: null,
-    streak: 0,
   })
 
   useEffect(() => {
@@ -41,18 +39,10 @@ export default function DashboardLayout({
 
         const avatar = user.user_metadata?.avatar_url || null
 
-        // Query profiles table for streak count
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('streak_count')
-          .eq('id', user.id)
-          .single()
-
         setUserInfo({
           displayName: fullName,
           avatarUrl: avatar,
           email: user.email,
-          streak: profile?.streak_count || 0,
         })
       }
     }
@@ -111,7 +101,7 @@ export default function DashboardLayout({
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-white leading-tight">{userInfo.displayName}</span>
               <span className="text-[10px] text-slate-400 font-medium">
-                {userInfo.streak > 0 ? `🔥 ${userInfo.streak} ngày streak` : 'Bắt đầu học ngay'}
+                Bắt đầu học ngay
               </span>
             </div>
           </div>
