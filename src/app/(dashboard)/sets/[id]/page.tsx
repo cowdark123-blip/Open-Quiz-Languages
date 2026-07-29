@@ -19,6 +19,7 @@ import { playTTS } from '@/lib/tts'
 import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2, FileInput, Star, Filter, ChevronDown } from 'lucide-react'
 import BulkImportModal from '@/components/BulkImportModal'
 import { useVocab } from '@/contexts/VocabContext'
+import { useMemo } from 'react'
 
 export default function SetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -112,21 +113,19 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     return () => window.removeEventListener('srs-progress-updated', handleSRSUpdate)
   }, [loadDataWithProgress])
 
-  // Sync with global VocabContext to get cross-page updates (like starring in Flashcards)
-  useEffect(() => {
-    setItems(prev => {
-      let hasChanges = false
-      const next = prev.map(item => {
-        const globalItem = vocabItems.find(v => v.id === item.id)
-        if (globalItem && globalItem.is_starred !== item.is_starred) {
-          hasChanges = true
-          return { ...item, is_starred: globalItem.is_starred }
+  // Compute fresh state during render to avoid useEffect syncing issues
+  const itemsWithFreshState = useMemo(() => {
+    return items.map(item => {
+      const globalItem = vocabItems.find(v => v.id === item.id)
+      if (globalItem) {
+        return {
+          ...item,
+          is_starred: globalItem.is_starred
         }
-        return item
-      })
-      return hasChanges ? next : prev
+      }
+      return item
     })
-  }, [vocabItems])
+  }, [items, vocabItems])
 
   const handleOpenAddModal = () => {
     setEditingItem(null)
@@ -342,7 +341,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     return 'Unlearned'
   }
 
-  const sortedItems = [...items].sort((a, b) => {
+  const sortedItems = [...itemsWithFreshState].sort((a, b) => {
     if (sortOption === 'starred') {
       if (a.is_starred && !b.is_starred) return -1
       if (!a.is_starred && b.is_starred) return 1
@@ -368,10 +367,10 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
 
     const isTermDup =
       termLower !== '' &&
-      items.some((other) => other.id !== item.id && other.term.trim().toLowerCase() === termLower)
+      itemsWithFreshState.some((other) => other.id !== item.id && other.term.trim().toLowerCase() === termLower)
     const isDefDup =
       defLower !== '' &&
-      items.some(
+      itemsWithFreshState.some(
         (other) =>
           other.id !== item.id &&
           ((other.definition || '').trim().toLowerCase() === defLower ||
