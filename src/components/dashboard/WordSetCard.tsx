@@ -67,7 +67,7 @@ export function WordSetCard({ set, learnedCount = 0 }: WordSetCardProps) {
       <div className="space-y-1.5 pt-2 border-t border-slate-800/60">
         <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
           <span>Tiến độ ghi nhớ</span>
-          <span className="text-purple-300 font-bold">{progressPercent}%</span>
+          <span className="text-purple-300 font-bold">{learnedCount}/{totalItems} từ</span>
         </div>
         <div className="w-full h-2 rounded-full bg-slate-800/80 overflow-hidden">
           <motion.div
