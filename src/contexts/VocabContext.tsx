@@ -177,6 +177,9 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         updateCache(allVocabSets, next)
         return next
       })
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('srs-progress-updated'))
+      }
     } catch (err) {
       console.error('Failed to update word mastery status:', err)
     }
@@ -192,6 +195,9 @@ export function VocabProvider({ children }: { children: ReactNode }) {
         updateCache(allVocabSets, next)
         return next
       })
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('srs-progress-updated'))
+      }
     } catch (err) {
       console.error('Failed to update word star status:', err)
     }

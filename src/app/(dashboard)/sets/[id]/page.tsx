@@ -18,11 +18,13 @@ import { VocabSet, VocabItem } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import { Plus, BookOpen, Brain, Mic, Trash2, Edit2, Volume2, ArrowLeft, Sparkles, X, Check, Loader2, FileInput, Star, Filter, ChevronDown } from 'lucide-react'
 import BulkImportModal from '@/components/BulkImportModal'
+import { useVocab } from '@/contexts/VocabContext'
 
 export default function SetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const setId = resolvedParams.id
   const router = useRouter()
+  const { vocabItems, updateWordStarStatus } = useVocab()
 
   const [currentSet, setCurrentSet] = useState<VocabSet | null>(null)
   const [items, setItems] = useState<VocabItem[]>([])
@@ -102,13 +104,29 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
   // Listen for SRS update events from Flashcard
   useEffect(() => {
     const handleSRSUpdate = () => {
-      console.log('📡 SRS update event received, re-loading data...')
+      console.log('🌟 SRS update event received, re-loading data...')
       loadDataWithProgress()
     }
 
     window.addEventListener('srs-progress-updated', handleSRSUpdate)
     return () => window.removeEventListener('srs-progress-updated', handleSRSUpdate)
   }, [loadDataWithProgress])
+
+  // Sync with global VocabContext to get cross-page updates (like starring in Flashcards)
+  useEffect(() => {
+    setItems(prev => {
+      let hasChanges = false
+      const next = prev.map(item => {
+        const globalItem = vocabItems.find(v => v.id === item.id)
+        if (globalItem && globalItem.is_starred !== item.is_starred) {
+          hasChanges = true
+          return { ...item, is_starred: globalItem.is_starred }
+        }
+        return item
+      })
+      return hasChanges ? next : prev
+    })
+  }, [vocabItems])
 
   const handleOpenAddModal = () => {
     setEditingItem(null)
@@ -309,7 +327,11 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
   const handleToggleStar = async (item: VocabItem) => {
     const newStatus = !item.is_starred
     setItems(items.map(i => i.id === item.id ? { ...i, is_starred: newStatus } : i))
-    await apiUpdateVocabItem(item.id, { is_starred: newStatus })
+    if (updateWordStarStatus) {
+      await updateWordStarStatus(item.id, newStatus)
+    } else {
+      await apiUpdateVocabItem(item.id, { is_starred: newStatus })
+    }
   }
 
   const getLearningStatus = (item: VocabItem) => {
