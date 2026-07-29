@@ -208,7 +208,6 @@ function SRSStudyContent() {
   const progressPercent = totalItems > 0 ? Math.round((reviewedCount / totalItems) * 100) : 100
 
   const isMastered = currentItem?.srsProgress?.status === 'mastered' || (currentItem?.srsProgress?.repetition || 0) >= 4
-  const isLearning = (currentItem?.srsProgress?.repetition || 0) > 0 && !isMastered
   const isNew = !currentItem?.srsProgress
   const isDuplicate = items.some(c => c.id !== currentItem?.id && 
     ((c.term.toLowerCase() === currentItem?.term.toLowerCase()) || 
@@ -217,9 +216,8 @@ function SRSStudyContent() {
 
   const StatusBadges = () => (
     <div className="flex flex-wrap gap-2 justify-center mt-2">
-      {isNew && <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase">🔴 Chưa học</span>}
-      {isLearning && <span className="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-bold border border-yellow-500/20 text-[10px] uppercase">🟡 Đang học (Lần {currentItem?.srsProgress?.repetition})</span>}
-      {isMastered && <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px] uppercase">🟢 Đã thành thạo</span>}
+      {isNew && <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase">🔥 Chưa học</span>}
+      {isMastered && <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px] uppercase">✅ Đã thành thạo</span>}
       {currentItem?.is_starred && <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20 text-[10px] uppercase">⭐ Đã gắn sao</span>}
       {isDuplicate && <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 font-bold border border-orange-500/20 text-[10px] uppercase">⚠️ Trùng</span>}
     </div>

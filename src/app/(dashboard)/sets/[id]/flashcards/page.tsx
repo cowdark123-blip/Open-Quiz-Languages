@@ -84,8 +84,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     let filtered = [...allCards]
     if (filterType === 'mastered') {
       filtered = filtered.filter(c => c.srsProgress?.status === 'mastered' || (c.srsProgress?.repetition || 0) >= 4)
-    } else if (filterType === 'learning') {
-      filtered = filtered.filter(c => (c.srsProgress?.repetition || 0) > 0 && c.srsProgress?.status !== 'mastered' && (c.srsProgress?.repetition || 0) < 4)
     } else if (filterType === 'new') {
       filtered = filtered.filter(c => !c.srsProgress || c.srsProgress.repetition === 0)
     } else if (filterType === 'starred') {
@@ -305,7 +303,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const progressPercent = Math.round(((cards.length > 0 ? (isCompleted ? 1 : currentIndex / cards.length) : 1)) * 100)
 
   const isMastered = currentCard?.srsProgress?.status === 'mastered' || (currentCard?.srsProgress?.repetition || 0) >= 4
-  const isLearning = (currentCard?.srsProgress?.repetition || 0) > 0 && !isMastered
   const isNew = !currentCard?.srsProgress
   const isDuplicate = cards.some(c => c.id !== currentCard.id && 
     ((c.term.toLowerCase() === currentCard.term.toLowerCase()) || 
@@ -315,7 +312,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const StatusBadges = () => (
     <div className="flex flex-wrap gap-2 justify-center mt-2">
       {isNew && <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase">🔴 Chưa học</span>}
-      {isLearning && <span className="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-bold border border-yellow-500/20 text-[10px] uppercase">🟡 Đang học (Lần {currentCard.srsProgress?.repetition})</span>}
       {isMastered && <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px] uppercase">🟢 Đã thành thạo</span>}
       {currentCard.is_starred && <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20 text-[10px] uppercase">⭐ Đã gắn sao</span>}
       {isDuplicate && <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 font-bold border border-orange-500/20 text-[10px] uppercase">⚠️ Trùng</span>}
@@ -418,7 +414,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
                 {[
                   { id: 'all', label: 'Tất cả', icon: Layers, color: 'text-blue-400', bg: 'bg-blue-500/10' },
                   { id: 'new', label: 'Chưa học', icon: Flame, color: 'text-red-400', bg: 'bg-red-500/10' },
-                  { id: 'learning', label: 'Đang học', icon: BookOpen, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
                   { id: 'mastered', label: 'Đã thuộc', icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                   { id: 'starred', label: 'Đã gắn sao', icon: Star, color: 'text-amber-400', bg: 'bg-amber-500/10' }
                 ].map(opt => {

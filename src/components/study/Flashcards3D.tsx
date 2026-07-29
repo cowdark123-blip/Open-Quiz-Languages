@@ -65,10 +65,6 @@ export function Flashcards3D({
       filtered = filtered.filter(
         (c) => c.srsProgress?.status === 'mastered' || (c.srsProgress?.repetition || 0) >= 4
       )
-    } else if (filterType === 'learning') {
-      filtered = filtered.filter(
-        (c) => (c.srsProgress?.repetition || 0) > 0 && c.srsProgress?.status !== 'mastered' && (c.srsProgress?.repetition || 0) < 4
-      )
     } else if (filterType === 'new') {
       filtered = filtered.filter((c) => !c.srsProgress || c.srsProgress.repetition === 0)
     } else if (filterType === 'starred') {
@@ -196,19 +192,13 @@ export function Flashcards3D({
 
   const isMastered =
     currentCard?.srsProgress?.status === 'mastered' || (currentCard?.srsProgress?.repetition || 0) >= 4
-  const isLearning = (currentCard?.srsProgress?.repetition || 0) > 0 && !isMastered
   const isNew = !currentCard?.srsProgress
 
   const StatusBadges = () => (
     <div className="flex flex-wrap gap-2 justify-center mt-2">
       {isNew && (
         <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-bold border border-red-500/20 text-[10px] uppercase">
-          🔴 Chưa học
-        </span>
-      )}
-      {isLearning && (
-        <span className="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-bold border border-yellow-500/20 text-[10px] uppercase">
-          🟡 Đang học (Lần {currentCard?.srsProgress?.repetition})
+          🔥 Chưa học
         </span>
       )}
       {isMastered && (
@@ -284,7 +274,6 @@ export function Flashcards3D({
                 {[
                   { id: 'all', label: 'Tất cả', icon: Layers, color: 'text-blue-400' },
                   { id: 'new', label: 'Chưa học', icon: Flame, color: 'text-red-400' },
-                  { id: 'learning', label: 'Đang học', icon: BookOpen, color: 'text-yellow-400' },
                   { id: 'mastered', label: 'Đã thuộc', icon: CheckCircle2, color: 'text-emerald-400' },
                   { id: 'starred', label: 'Đã gắn sao', icon: Star, color: 'text-amber-400' },
                 ].map((opt) => {

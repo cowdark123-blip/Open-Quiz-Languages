@@ -54,7 +54,7 @@ export function LearnedWordsWidget() {
   const activeItemIds = new Set(activeVocabItems.map(i => i.id))
   // Use user_srs_progress as source of truth (vocab_items.is_mastered column doesn't exist in DB)
   const masteredCount = srsProgressList.filter(p => activeItemIds.has(p.item_id) && p.status === 'mastered').length
-  const learningCount = srsProgressList.filter(p => activeItemIds.has(p.item_id) && p.status !== 'mastered').length
+  const newCount = totalWords - masteredCount
   const activeDueCount = dueItemsList.filter(item => activeSetIds.has(item.set_id)).length
 
   const masteryPercentage = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0
@@ -141,36 +141,36 @@ export function LearnedWordsWidget() {
         </div>
       </motion.div>
 
-      {/* KPI 3: In Progress Words */}
+      {/* KPI 3: New Words */}
       <motion.div
         whileHover={{ y: -3 }}
-        className="glass-card p-5 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 via-slate-900/60 to-slate-900/40 relative overflow-hidden flex flex-col justify-between"
+        className="glass-card p-5 rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/20 via-slate-900/60 to-slate-900/40 relative overflow-hidden flex flex-col justify-between"
       >
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-400">Đang Học</span>
-          <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <Brain className="w-5 h-5" />
+          <span className="text-xs font-bold text-slate-400">Chưa Học</span>
+          <div className="p-2 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20">
+            <Sparkles className="w-5 h-5" />
           </div>
         </div>
 
         <div className="my-3 flex items-baseline justify-between">
-          <div className="text-3xl font-black text-cyan-400 tracking-tight">
-            {loading ? <span className="animate-pulse text-slate-500">...</span> : learningCount}
+          <div className="text-3xl font-black text-red-400 tracking-tight">
+            {loading ? <span className="animate-pulse text-slate-500">...</span> : newCount}
           </div>
-          <div className="text-xs text-cyan-300 font-semibold">Đang lặp ngắt quãng</div>
+          <div className="text-xs text-red-300 font-semibold">Cần ôn tập</div>
         </div>
 
         <div className="space-y-1.5">
           <div className="flex justify-between text-[10px] text-slate-400 font-semibold">
-            <span>Giai đoạn ghi nhớ</span>
-            <span>{totalWords > 0 ? `${Math.round((learningCount / totalWords) * 100)}%` : '0%'}</span>
+            <span>Chưa thành thạo</span>
+            <span>{totalWords > 0 ? `${Math.round((newCount / totalWords) * 100)}%` : '0%'}</span>
           </div>
           <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${totalWords > 0 ? (learningCount / totalWords) * 100 : 0}%` }}
+              animate={{ width: `${totalWords > 0 ? (newCount / totalWords) * 100 : 0}%` }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
+              className="h-full bg-gradient-to-r from-red-500 to-orange-500 rounded-full"
             />
           </div>
         </div>

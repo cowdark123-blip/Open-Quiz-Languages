@@ -6,7 +6,7 @@ import { Brain, Layers, Clock, Sparkles, BookOpen, Star, CheckCircle2, Check, Ar
 import { useVocab } from '@/contexts/VocabContext'
 import { useRouter } from 'next/navigation'
 
-type ModeKey = 'due' | 'new' | 'learning' | 'mastered' | 'starred'
+type ModeKey = 'due' | 'new' | 'mastered' | 'starred'
 
 interface SRSSetupModalProps {
   isOpen: boolean
@@ -19,7 +19,7 @@ export function SRSSetupModal({ isOpen, onClose, preselectId }: SRSSetupModalPro
   const router = useRouter()
 
   const [selectedSets, setSelectedSets] = useState<Set<string>>(new Set())
-  const [selectedModes, setSelectedModes] = useState<Set<ModeKey>>(new Set(['due', 'new', 'learning']))
+  const [selectedModes, setSelectedModes] = useState<Set<ModeKey>>(new Set(['due', 'new']))
 
   useEffect(() => {
     if (isOpen) {
@@ -53,7 +53,6 @@ export function SRSSetupModal({ isOpen, onClose, preselectId }: SRSSetupModalPro
   const modes: { key: ModeKey; label: string; icon: any; color: string; bg: string; border: string }[] = [
     { key: 'due', label: 'Đến Hạn Ôn', icon: Clock, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30' },
     { key: 'new', label: 'Chưa Học', icon: Sparkles, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
-    { key: 'learning', label: 'Đang Học', icon: Brain, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/30' },
     { key: 'mastered', label: 'Đã Thuộc', icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
     { key: 'starred', label: 'Đã Gắn Sao', icon: Star, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
   ]
