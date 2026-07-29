@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { useSwipeable } from 'react-swipeable'
 import NavigationGuard from '@/components/NavigationGuard'
-import { fetchVocabSetById, fetchVocabItems, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem } from '@/lib/supabase/data-service'
+import { fetchVocabSetById, fetchVocabItemsWithSRSProgress, saveActiveSession, loadActiveSession, deleteActiveSession, saveSRSProgress, updateVocabItem } from '@/lib/supabase/data-service'
 import { VocabItem, VocabSet } from '@/types/database'
 import { playTTS } from '@/lib/tts'
 import * as React from 'react'
@@ -63,7 +63,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     async function loadData() {
       setLoading(true)
       const setObj = await fetchVocabSetById(setId)
-      const itemsList = await fetchVocabItems(setId)
+      const itemsList = await fetchVocabItemsWithSRSProgress(setId)
       setCurrentSet(setObj)
       setAllCards(itemsList)
 
@@ -205,7 +205,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     setIsCompleted(false)
     setIsSetupComplete(false)
     
-    const itemsList = await fetchVocabItems(setId)
+    const itemsList = await fetchVocabItemsWithSRSProgress(setId)
     setAllCards(itemsList)
     await deleteActiveSession('flashcards', setId)
     setLoading(false)

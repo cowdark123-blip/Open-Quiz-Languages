@@ -365,8 +365,8 @@ export async function fetchCustomSRSItems(setIds: string[], modes: string[]): Pr
 
       const setTitle = setMap.get(item.set_id) || 'Bộ Từ Vựng'
       
-      const isMastered = progress && progress.repetition >= 4
-      const isLearning = progress && progress.repetition > 0 && progress.repetition < 4
+      const isMastered = progress && (progress.status === 'mastered' || progress.repetition >= 4)
+      const isLearning = progress && progress.status !== 'mastered' && progress.repetition > 0 && progress.repetition < 4
       const isNew = !progress
       const isDue = progress && new Date(progress.next_review_date).getTime() <= now
       const isStarred = item.is_starred
