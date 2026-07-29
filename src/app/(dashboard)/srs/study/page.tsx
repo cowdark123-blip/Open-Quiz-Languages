@@ -12,6 +12,7 @@ import { AIPronunciationTrainer } from '@/components/ai-pronunciation-trainer'
 import SRSForecastChart from '@/components/SRSForecastChart'
 import { Volume2, ArrowLeft, RotateCcw, Brain, Keyboard, Eye, Loader2, CheckCircle2, Star, CheckCircle } from 'lucide-react'
 import { updateVocabItem } from '@/lib/supabase/data-service'
+import { useVocab } from '@/contexts/VocabContext'
 
 function SRSStudyContent() {
   const searchParams = useSearchParams()
@@ -20,6 +21,8 @@ function SRSStudyContent() {
 
   const setIds = setIdsParam ? setIdsParam.split(',') : []
   const modes = modesParam ? modesParam.split(',') : ['due']
+
+  const { updateWordStarStatus } = useVocab()
 
   const [items, setItems] = useState<(VocabItem & { srsProgress?: UserSRSProgress; setTitle?: string })[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,7 +39,12 @@ function SRSStudyContent() {
     if (!item) return
     const newStarred = !item.is_starred
     setItems(prev => prev.map(c => c.id === item.id ? { ...c, is_starred: newStarred } : c))
-    await updateVocabItem(item.id, { is_starred: newStarred })
+    
+    if (updateWordStarStatus) {
+      await updateWordStarStatus(item.id, newStarred)
+    } else {
+      await updateVocabItem(item.id, { is_starred: newStarred })
+    }
   }
 
   const loadItems = useCallback(async () => {

@@ -20,7 +20,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const setId = resolvedParams.id
   const router = useRouter()
   const isMobile = useIsMobile()
-  const { updateWordMasteryStatus } = useVocab()
+  const { updateWordMasteryStatus, updateWordStarStatus } = useVocab()
 
   const [currentSet, setCurrentSet] = useState<VocabSet | null>(null)
   const [cards, setCards] = useState<VocabItem[]>([])
@@ -56,7 +56,11 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     if (!card) return
     const newStarred = !card.is_starred
     setCards(prev => prev.map(c => c.id === card.id ? { ...c, is_starred: newStarred } : c))
-    await updateVocabItem(card.id, { is_starred: newStarred })
+    if (updateWordStarStatus) {
+      await updateWordStarStatus(card.id, newStarred)
+    } else {
+      await updateVocabItem(card.id, { is_starred: newStarred })
+    }
   }
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
-import { fetchAllUserVocabItems, fetchUserVocabSets, insertVocabItem, insertVocabSet, updateWordStatus } from '@/lib/supabase/data-service'
+import { fetchAllUserVocabItems, fetchUserVocabSets, insertVocabItem, insertVocabSet, updateWordStatus, updateVocabItem } from '@/lib/supabase/data-service'
 import { createClient } from '@/lib/supabase/client'
 import { VocabItem, VocabSet } from '@/types/database'
 
@@ -15,6 +15,7 @@ interface VocabContextProps {
   createSetAndAddWord: (setTitle: string, term: string, definition: string, ipa: string, vietnameseTranslation: string, exampleSentence: string) => Promise<boolean>
   isWordSaved: (term: string) => boolean
   updateWordMasteryStatus?: (itemId: string, isMastered: boolean) => Promise<void>
+  updateWordStarStatus?: (itemId: string, isStarred: boolean) => Promise<void>
 }
 
 const VocabContext = createContext<VocabContextProps | undefined>(undefined)
@@ -179,7 +180,22 @@ export function VocabProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Failed to update word mastery status:', err)
     }
-  }, [allVocabSets])
+  }, [allVocabSets, updateCache])
+
+  const updateWordStarStatus = useCallback(async (itemId: string, isStarred: boolean) => {
+    try {
+      await updateVocabItem(itemId, { is_starred: isStarred })
+      setVocabItems(prev => {
+        const next = prev.map(item =>
+          item.id === itemId ? { ...item, is_starred: isStarred } : item
+        )
+        updateCache(allVocabSets, next)
+        return next
+      })
+    } catch (err) {
+      console.error('Failed to update word star status:', err)
+    }
+  }, [allVocabSets, updateCache])
 
   return (
     <VocabContext.Provider value={{
@@ -191,7 +207,8 @@ export function VocabProvider({ children }: { children: ReactNode }) {
       addWordToSet,
       createSetAndAddWord,
       isWordSaved,
-      updateWordMasteryStatus
+      updateWordMasteryStatus,
+      updateWordStarStatus
     }}>
       {children}
     </VocabContext.Provider>
