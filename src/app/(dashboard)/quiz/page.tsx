@@ -1,0 +1,432 @@
+'use client'
+
+import React, { useState, useEffect, useRef } from 'react'
+import { fetchUserVocabSets, fetchVocabItems, saveQuizResult, loadActiveSession, saveActiveSession, deleteActiveSession } from '@/lib/supabase/data-service'
+import { VocabSet, VocabItem } from '@/types/database'
+import { shuffleArray } from '@/lib/random'
+import { Trophy, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import confetti from 'canvas-confetti'
+import NavigationGuard from '@/components/NavigationGuard'
+import MultiSetSelector from '@/components/MultiSetSelector'
+import WordSelector from '@/components/WordSelector'
+import InteractiveText from '@/components/InteractiveText'
+import { fetchVocabItemsBySets } from '@/lib/supabase/data-service'
+
+type QuizQuestion = {
+  vocab: VocabItem
+  options: string[]
+}
+
+import { useVocab } from '@/contexts/VocabContext'
+
+export default function QuizPage() {
+  const { vocabSets: sets, isLoading: contextLoading } = useVocab()
+  const [selectedSets, setSelectedSets] = useState<string[]>([])
+  const [vocabItems, setVocabItems] = useState<VocabItem[]>([])
+  const [fetchedItems, setFetchedItems] = useState<VocabItem[]>([])
+  const [loading, setLoading] = useState(false)
+  
+  const [selectedWords, setSelectedWords] = useState<string[]>([])
+  const [questionCount, setQuestionCount] = useState(10)
+  
+  const [questions, setQuestions] = useState<QuizQuestion[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [answers, setAnswers] = useState<Record<number, string>>({})
+  const [isFinished, setIsFinished] = useState(false)
+  const [score, setScore] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [pendingSession, setPendingSession] = useState<any>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const isSavedRef = React.useRef(false)
+
+  const [preselectId, setPreselectId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const p = params.get('preselect')
+      if (p) {
+        setPreselectId(p)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (sets.length > 0 && selectedSets.length === 0) {
+      if (preselectId) {
+        setSelectedSets([preselectId])
+      } else {
+        setSelectedSets([sets[0].id])
+      }
+    }
+  }, [sets, selectedSets, preselectId])
+
+  useEffect(() => {
+    const loadSession = async () => {
+      if (selectedSets.length === 0) return
+      setIsLoadingSession(true)
+      const resourceId = selectedSets.slice().sort().join(',')
+      const sessionData = await loadActiveSession('quiz', resourceId)
+      if (sessionData && sessionData.questions && sessionData.questions.length > 0) {
+        setPendingSession(sessionData)
+      } else {
+        setPendingSession(null)
+      }
+      const fetched = await fetchVocabItemsBySets(selectedSets)
+      setFetchedItems(fetched)
+      if (fetched.length > 0) setSelectedWords(fetched.map(i => i.id))
+      setIsLoadingSession(false)
+    }
+    loadSession()
+  }, [selectedSets])
+
+  const handleStartQuiz = async () => {
+    if (selectedSets.length === 0) return
+    const resourceId = selectedSets.slice().sort().join(',')
+    setPendingSession(null)
+    setLoading(true)
+    setQuestions([])
+    setAnswers({})
+    setIsFinished(false)
+    setCurrentIndex(0)
+    setScore(0)
+
+    const items = fetchedItems.filter(i => selectedWords.includes(i.id))
+    setVocabItems(items)
+
+    if (items.length < 4) {
+      setErrorMsg('Bộ từ vựng hiện tại chưa đủ từ. Hãy chọn ít nhất 4 từ để tạo bài kiểm tra nhé!')
+      setLoading(false)
+      return
+    }
+    setErrorMsg('')
+
+    // Generate up to questionCount questions
+    const shuffledItems = shuffleArray(items).slice(0, questionCount)
+    
+    const generatedQuestions = shuffledItems.map(targetItem => {
+      const wrongOptions = shuffleArray(items.filter(i => i.id !== targetItem.id))
+        .slice(0, 3)
+        .map(i => i.vietnamese_translation || 'Khác')
+      
+      const options = shuffleArray([targetItem.vietnamese_translation || 'Chưa rõ', ...wrongOptions]) as string[]
+      return { vocab: targetItem, options }
+    })
+
+    setQuestions(generatedQuestions)
+    setLoading(false)
+    // Optional: save immediately on start
+    await saveActiveSession('quiz', resourceId, {
+      questions: generatedQuestions,
+      currentIndex: 0,
+      answers: {},
+      isFinished: false,
+      score: 0
+    })
+  }
+
+  const handleSelectOption = (opt: string) => {
+    if (isFinished) return
+    setAnswers(prev => ({ ...prev, [currentIndex]: opt }))
+  }
+
+  const handleNext = () => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(prev => prev + 1)
+    } else {
+      finishQuiz()
+    }
+  }
+
+  const finishQuiz = async () => {
+    let currentScore = 0
+    questions.forEach((q, idx) => {
+      if (answers[idx] === q.vocab.vietnamese_translation) {
+        currentScore++
+      }
+    })
+    setScore(currentScore)
+    setIsFinished(true)
+
+    // Trigger Confetti Celebration
+    if (currentScore / questions.length >= 0.5) {
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#e11d48', '#a855f7', '#06b6d4', '#10b981'],
+        })
+      } catch {
+        // Fallback gracefully
+      }
+    }
+    
+    // Save to DB
+    setSaving(true)
+    try {
+      if (selectedSets.length > 0) {
+        await saveQuizResult(selectedSets[0], currentScore, questions.length)
+      }
+      const resourceId = selectedSets.slice().sort().join(',')
+      await deleteActiveSession('quiz', resourceId)
+    } catch (error) {
+      console.error('Failed to save score', error)
+    }
+    setSaving(false)
+  }
+
+  const handleSaveAndExit = async () => {
+    isSavedRef.current = true
+    const resourceId = selectedSets.slice().sort().join(',')
+    await saveActiveSession('quiz', resourceId, {
+      questions,
+      currentIndex,
+      answers,
+      isFinished,
+      score
+    })
+    window.history.go(-2)
+  }
+
+  const handleDiscardAndExit = async () => {
+    isSavedRef.current = true
+    const resourceId = selectedSets.slice().sort().join(',')
+    await deleteActiveSession('quiz', resourceId)
+    window.history.go(-2)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (!isSavedRef.current && questions.length > 0 && !isFinished) {
+        // Cleanup if unmounted without saving explicitly
+        const resourceId = selectedSets.slice().sort().join(',')
+        deleteActiveSession('quiz', resourceId)
+      }
+    }
+  }, [questions, isFinished, selectedSets])
+
+  if (contextLoading || isLoadingSession) {
+    return (
+      <div className="flex flex-col justify-center items-center py-20 space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
+        <p className="text-slate-400 text-sm">Đang kiểm tra tiến trình đã lưu...</p>
+      </div>
+    )
+  }
+
+  return (
+    <NavigationGuard 
+      isDirty={questions.length > 0 && !isFinished}
+      onSaveAndExit={handleSaveAndExit}
+      onDiscardAndExit={handleDiscardAndExit}
+    >
+      <div className="max-w-3xl mx-auto space-y-6 responsive-boundary">
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-rose-400" />
+            Bài Kiểm Tra (Quiz)
+          </h2>
+          <p className="text-xs text-slate-400">Kiểm tra trí nhớ & Lưu lại điểm số</p>
+        </div>
+        
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {!preselectId && (
+            <MultiSetSelector 
+              sets={sets}
+              selectedIds={selectedSets}
+              onChange={(newIds) => {
+                setSelectedSets(newIds)
+                setErrorMsg('')
+              }}
+              disabled={questions.length > 0 && !isFinished}
+            />
+          )}
+          
+          {(questions.length === 0 || isFinished) && !pendingSession && (
+            <button 
+              onClick={handleStartQuiz}
+              disabled={loading || selectedSets.length === 0}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold rounded-xl flex items-center gap-2 whitespace-nowrap transition-all"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
+              Bắt Đầu
+            </button>
+          )}
+        </div>
+      </div>
+
+      {errorMsg && (
+        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <XCircle className="w-5 h-5 shrink-0" />
+          <p className="text-sm font-medium">{errorMsg}</p>
+        </div>
+      )}
+
+      {!pendingSession && questions.length === 0 && !isFinished && fetchedItems.length > 0 && (
+        <details className="glass-panel p-6 rounded-3xl border border-slate-800 group" open>
+          <summary className="font-bold text-white text-lg border-b border-slate-800 pb-2 cursor-pointer list-none flex items-center justify-between">
+            <span>Cấu hình bài kiểm tra</span>
+            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">Số lượng câu hỏi ({questionCount})</label>
+                <input 
+                  type="range" 
+                  min="3" max="30" 
+                  value={questionCount} 
+                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  className="w-full accent-rose-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <WordSelector 
+                items={fetchedItems} 
+                selectedIds={selectedWords} 
+                onChange={setSelectedWords} 
+              />
+            </div>
+          </div>
+        </details>
+      )}
+
+      {pendingSession ? (
+        <div className="glass-panel p-8 rounded-3xl border border-rose-500/30 text-center space-y-4 animate-in fade-in">
+          <h3 className="text-xl font-bold text-white">Phát hiện bài kiểm tra đang làm dở</h3>
+          <p className="text-sm text-slate-400">Bạn có muốn tiếp tục bài kiểm tra trước đó hay tạo bài mới?</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+            <button
+              onClick={() => {
+                setQuestions(pendingSession.questions)
+                setCurrentIndex(pendingSession.currentIndex || 0)
+                setAnswers(pendingSession.answers || {})
+                setIsFinished(pendingSession.isFinished || false)
+                setScore(pendingSession.score || 0)
+                setPendingSession(null)
+              }}
+              className="px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition-all shadow-lg shadow-rose-500/20"
+            >
+              Tiếp Tục Bài Cũ
+            </button>
+            <button
+              onClick={() => {
+                setPendingSession(null)
+                handleStartQuiz()
+              }}
+              className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+            >
+              Tạo Bài Mới (Xóa cũ)
+            </button>
+          </div>
+        </div>
+      ) : questions.length > 0 && !isFinished && (
+        <div className="glass-card p-8 rounded-3xl border border-slate-800 animate-in fade-in">
+          <div className="flex items-center justify-between mb-8 gap-4">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap shrink-0">
+              Câu {currentIndex + 1} / {questions.length}
+            </span>
+            <div className="flex gap-1 flex-1 justify-end h-1.5">
+              {questions.map((_, i) => (
+                <div key={i} className={`h-1.5 flex-1 max-w-[24px] min-w-[4px] rounded-full ${i <= currentIndex ? 'bg-rose-500' : 'bg-slate-800'}`} />
+              ))}
+            </div>
+          </div>
+
+          <div className="text-center py-10 space-y-4">
+            <h3 className="text-4xl font-black text-white tracking-wide"><InteractiveText text={questions[currentIndex].vocab.term} /></h3>
+            {questions[currentIndex].vocab.ipa && (
+              <p className="text-slate-400 font-mono">{questions[currentIndex].vocab.ipa}</p>
+            )}
+            <p className="text-sm text-slate-500">Nghĩa tiếng Việt của từ này là gì?</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {questions[currentIndex].options.map((opt, i) => {
+              const isSelected = answers[currentIndex] === opt
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleSelectOption(opt)}
+                  className={`p-4 rounded-2xl border text-left transition-all ${
+                    isSelected 
+                      ? 'bg-rose-600/20 border-rose-500 text-rose-300 shadow-[0_0_15px_rgba(225,29,72,0.2)]' 
+                      : 'bg-slate-900/50 border-slate-700 text-slate-300 hover:border-slate-500 hover:bg-slate-800'
+                  }`}
+                >
+                  {opt}
+                </button>
+              )
+            })}
+          </div>
+
+          <button
+            onClick={handleNext}
+            disabled={!answers[currentIndex]}
+            className="mt-8 w-full py-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-lg disabled:opacity-50 transition-all shadow-lg"
+          >
+            {currentIndex === questions.length - 1 ? 'Hoàn Thành' : 'Câu Tiếp Theo'}
+          </button>
+        </div>
+      )}
+
+      {isFinished && (
+        <div className="glass-panel p-10 rounded-3xl border border-rose-500/30 text-center space-y-6 animate-in slide-in-from-bottom-4 shadow-[0_0_30px_rgba(225,29,72,0.1)] relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500" />
+          
+          <Trophy className="w-20 h-20 text-rose-400 mx-auto drop-shadow-xl" />
+          
+          <div>
+            <h3 className="text-3xl font-black text-white mb-2">Hoàn Thành Bài Kiểm Tra!</h3>
+            <p className="text-slate-400">Điểm số của bạn đã được lưu lại hệ thống.</p>
+          </div>
+
+          <div className="py-6">
+            <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-rose-400 to-pink-600 drop-shadow-sm">
+              {score}/{questions.length}
+            </div>
+            <div className="text-sm font-bold text-rose-500 mt-2 tracking-widest uppercase">
+              {Math.round((score / questions.length) * 100)}% Chính xác
+            </div>
+          </div>
+
+          <div className="space-y-3 max-h-64 overflow-y-auto pr-2 text-left bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+            {questions.map((q, idx) => {
+              const isCorrect = answers[idx] === q.vocab.vietnamese_translation
+              return (
+                <div key={idx} className="flex items-start justify-between border-b border-slate-800/50 pb-2 last:border-0 last:pb-0">
+                  <div>
+                    <span className="font-bold text-white mr-2">{q.vocab.term}</span>
+                    <span className="text-xs text-slate-400">- {q.vocab.vietnamese_translation}</span>
+                    {!isCorrect && (
+                      <div className="text-xs text-red-400 mt-1">Bạn chọn: {answers[idx]}</div>
+                    )}
+                  </div>
+                  {isCorrect ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-400 shrink-0" />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <button
+            onClick={handleStartQuiz}
+            className="w-full py-4 rounded-xl glass-card text-rose-400 hover:text-rose-300 hover:bg-slate-800 font-bold text-lg transition-all flex items-center justify-center gap-2"
+          >
+            <RotateCcw className="w-5 h-5" /> Thử Lại
+          </button>
+        </div>
+      )}
+    </div>
+    </NavigationGuard>
+  )
+}

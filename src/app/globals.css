@@ -1,0 +1,276 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 6%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 263 70% 58%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 215 27.9% 16.9%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 215 27.9% 16.9%;
+    --muted-foreground: 215.4 16.3% 56.9%;
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 27.9% 16.9%;
+    --input: 215 27.9% 16.9%;
+    --ring: 263 70% 58%;
+    --radius: 0.75rem;
+
+    /* HSL Theme Colors */
+    --cosmic-primary: 263 70% 58%;
+    --cosmic-glow: 280 85% 65%;
+    --glass-primary: 190 90% 50%;
+    --glass-glow: 210 100% 50%;
+    --gradient-primary: 320 85% 60%;
+    --gradient-glow: 45 95% 60%;
+    --ambient-primary: 160 70% 45%;
+    --ambient-glow: 140 65% 55%;
+  }
+}
+
+body {
+  background-color: #090d16;
+  color: #f1f5f9;
+  font-family: var(--font-outfit), var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  overflow-x: hidden;
+  /* Mobile optimizations */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Mobile touch optimizations */
+@media (hover: none) and (pointer: coarse) {
+  * {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  input, textarea, select {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* Glassmorphism utilities */
+.glass-panel {
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border-radius: 1rem;
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.5) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+  border-radius: 0.75rem;
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(168, 85, 247, 0.3);
+  box-shadow: 0 12px 40px 0 rgba(168, 85, 247, 0.15);
+}
+
+/* Text Gradients */
+.text-gradient-purple {
+  background: linear-gradient(135deg, #c084fc 0%, #f472b6 50%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #22d3ee 0%, #2dd4bf 50%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #fcd34d 0%, #facc15 50%, #f97316 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #a78bfa 0%, #38bdf8 50%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Dynamic Gradient Background Utilities */
+.bg-gradient-cosmic {
+  background: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.25) 0%, rgba(15, 23, 42, 0.9) 70%),
+              radial-gradient(circle at 80% 60%, rgba(236, 72, 153, 0.2) 0%, transparent 50%),
+              radial-gradient(circle at 15% 80%, rgba(99, 102, 241, 0.2) 0%, transparent 50%),
+              #090d16;
+}
+
+.bg-gradient-glass {
+  background: radial-gradient(circle at 30% 20%, rgba(6, 182, 212, 0.3) 0%, rgba(15, 30, 50, 0.9) 70%),
+              radial-gradient(circle at 70% 80%, rgba(59, 130, 246, 0.25) 0%, transparent 50%),
+              radial-gradient(circle at 90% 10%, rgba(14, 165, 233, 0.2) 0%, transparent 40%),
+              #051525;
+}
+
+.bg-gradient-vibrant {
+  background: radial-gradient(circle at 20% 30%, rgba(217, 70, 239, 0.3) 0%, rgba(30, 10, 30, 0.9) 70%),
+              radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.25) 0%, transparent 50%),
+              radial-gradient(circle at 50% 80%, rgba(132, 204, 22, 0.2) 0%, transparent 50%),
+              #1a0515;
+}
+
+.bg-gradient-ambient {
+  background: radial-gradient(circle at 50% 30%, rgba(16, 185, 129, 0.25) 0%, rgba(10, 30, 25, 0.9) 70%),
+              radial-gradient(circle at 10% 70%, rgba(20, 184, 166, 0.2) 0%, transparent 50%),
+              radial-gradient(circle at 85% 75%, rgba(6, 78, 59, 0.3) 0%, transparent 50%),
+              #021812;
+}
+
+/* Glow effects */
+.glow-purple {
+  box-shadow: 0 0 50px -10px rgba(139, 92, 246, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 50px -10px rgba(6, 182, 212, 0.35);
+}
+
+/* Responsive fluid layout utilities */
+.fluid-container {
+  width: 100%;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.responsive-boundary {
+  min-width: 300px;
+  min-height: 350px;
+  width: 100%;
+  height: 100%;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* 3D Flip Card */
+.perspective-1000 { perspective: 1000px; }
+.transform-style-3d { transform-style: preserve-3d; }
+.backface-hidden { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+.rotate-y-180 { transform: rotateY(180deg); }
+
+/* Mobile safe area support */
+.safe-area-pb, .pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
+}
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-pl {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-pr {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Mobile-first responsive helpers */
+@media (max-width: 767px) {
+  .mobile\:hidden { display: none !important; }
+  .mobile\:block { display: block !important; }
+  .mobile\:flex { display: flex !important; }
+  .mobile\:w-full { width: 100% !important; }
+  .mobile\:p-2 { padding: 0.5rem !important; }
+  .mobile\:p-4 { padding: 1rem !important; }
+  .mobile\:px-2 { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+  .mobile\:px-4 { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .mobile\:text-sm { font-size: 0.875rem !important; }
+  .mobile\:text-xs { font-size: 0.75rem !important; }
+  .mobile\:gap-2 { gap: 0.5rem !important; }
+  .mobile\:gap-3 { gap: 0.75rem !important; }
+}
+
+/* Touch target minimum size */
+@media (max-width: 767px) {
+  button, a[href], [role="button"], input, select, textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Bottom sheet animation */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Focus visible for accessibility */
+.focus-visible:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
