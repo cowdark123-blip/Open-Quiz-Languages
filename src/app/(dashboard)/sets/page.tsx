@@ -124,6 +124,16 @@ function SetsPageContent() {
       window.dispatchEvent(new Event('trash_updated'))
     }
     setTrashIds([...trashIds])
+
+    // Soft delete in database to sync across devices
+    const targetSet = sets.find(s => s.id === id)
+    if (targetSet) {
+      try {
+        await apiUpdateVocabSet(id, { category: `${targetSet.category || ''}__DELETED__` })
+      } catch (err) {
+        console.error('Failed to soft delete set in db', err)
+      }
+    }
   }
 
   const activeSets = sets.filter(s => !trashIds.includes(s.id) && !s.category?.endsWith('__DELETED__'))
