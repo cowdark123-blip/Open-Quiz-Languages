@@ -495,9 +495,18 @@ export async function insertVocabItemsBatch(items: Partial<VocabItem>[]): Promis
 export async function updateVocabItem(id: string, updates: Partial<VocabItem>): Promise<boolean> {
   const supabase = createClient()
   try {
-    const { error } = await supabase.from('vocab_items').update(updates).eq('id', id)
-    return !error
-  } catch {
+    const { data, error } = await supabase.from('vocab_items').update(updates).eq('id', id).select()
+    if (error) {
+      console.error('updateVocabItem Supabase error:', error)
+      return false
+    }
+    if (!data || data.length === 0) {
+      console.warn('updateVocabItem affected 0 rows! Likely blocked by RLS. Item ID:', id)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('updateVocabItem Exception:', err)
     return false
   }
 }
